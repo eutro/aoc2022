@@ -15,6 +15,6 @@ DAYP="$(printf "%02d" "$DAY")"
 mkdir -p input
 echo "Fetching day $DAY..."
 curl -fs -H"Cookie: session=$KEY" \
-     "https://adventofcode.com/2015/day/$DAY/input" \
+     "https://adventofcode.com/2022/day/$DAY/input" \
      -o "input/day$DAYP.txt" &&
     echo "Success" && exit 0 || echo "Errored" && exit 1

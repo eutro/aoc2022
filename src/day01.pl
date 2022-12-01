@@ -1,25 +1,24 @@
 main :-
-    loop(X, Y),
-    write(X),
-    write(", "),
-    write(Y),
-    write("\n").
+    stream_to_lazy_list(current_input, InCodes),
+    lazy_list_materialize(InCodes),
+    parse_elves(InCodes, Elves),
+    maplist(sum_list, Elves, ElvesSum),
+    sort(ElvesSum, ElvesSortR),
+    reverse(ElvesSortR, ElvesSorted),
+    [P1|_] = ElvesSorted,
+    write(P1),nl,
+    [A,B,C|_] = ElvesSorted,
+    P2 is A + B + C,
+    write(P2),nl.
 
-loop(R, T) :-
-    get_char(C),
-    process(C, 0, 0, R, none, T).
+split_elves(Codes, [ElfRaw | RestElves]) :- append(ElfRaw, [10, 10 | Rest], Codes), !, split_elves(Rest, RestElves).
+split_elves(Codes, [Codes]).
 
-process(end_of_file, _, A, A, B, B).
-process(C, I, A, R, G, T) :-
-    step(C, A, B),
-    step2(A, I, G, H),
-    get_char(C1),
-    J is I + 1,
-    process(C1, J, B, R, H, T).
+parse_elves(Codes, Elves) :-
+    split_elves(Codes, ElvesRaw),
+    maplist(parse_elf, ElvesRaw, Elves).
 
-step2(-1, I, none, I).
-step2(_, _, X, X).
-
-step('(', A, R) :- R is A + 1.
-step(')', A, R) :- R is A - 1.
-step(_, A, A).
+parse_elf(Raw, Foods) :-
+    string_codes(Raw, Str),
+    split_string(Str, "\n", "\n", FoodsRaw),
+    maplist(number_string, Foods, FoodsRaw).
