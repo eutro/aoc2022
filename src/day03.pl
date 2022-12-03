@@ -1,44 +1,39 @@
 :- use_module(library(dcg/basics)).
-:- use_module(library(lists)).
 :- use_module(library(ordsets)).
 
 main :-
-    stream_to_lazy_list(current_input, InCodes),
-    lazy_list_materialize(InCodes),
-    phrase(parse_input(Input), InCodes),
-    maplist(sum_common, Input, Prios),
-    sum_list(Prios, P1),
-    write(P1),nl,
-    !,
-    groups(Input, Groups),
-    maplist(group_badge, Groups, Badges),
-    maplist(priority, Badges, BadgePrios),
-    sum_list(BadgePrios, BadgeSum),
-    write(BadgeSum),nl.
+    phrase_from_stream(parse_input(Input), current_input),
+    sum_common(Input, P1),
+    write(P1),nl,!,
+    group_badges(Input, P2),
+    write(P2),nl.
 
-group_badge([[_,_,A], [_,_,B], [_,_,C]], Badge) :-
+sum_common(Ls, R) :- sum_common(Ls, 0, R).
+sum_common([[Lhs, Rhs, _] | Tl], A, R) :-
+    ord_intersection(Lhs, Rhs, Common),
+    sum_list(Common, X),
+    A1 is A + X,
+    sum_common(Tl, A1, R).
+sum_common([], A, A).
+
+group_badges(Ls, R) :- group_badges(Ls, 0, R).
+group_badges([[_, _, A], [_, _, B], [_, _, C] | Tl], Acc, R) :-
     ord_intersection(A, B, AB),
     ord_intersection(AB, C, ABC),
-    [Badge] = ABC.
-
-groups([A, B, C | InR], [[A, B, C] | GrR]) :- groups(InR, GrR).
-groups([], []).
-
-sum_common([Lhs, Rhs, _], R) :-
-    ord_intersection(Lhs, Rhs, Common),
-    %string_codes(CStr, Common),write(CStr),nl,
-    maplist(priority, Common, Prios),
-    sum_list(Prios, R).
+    [Badge] = ABC,
+    Acc1 is Acc + Badge,
+    group_badges(Tl, Acc1, R).
+group_badges([], A, A).
 
 split(Ls, [], Ls, 0).
 split([X|Ls], [X|Lhs], Rhs, N) :- R is N - 1, split(Ls, Lhs, Rhs, R).
 
 parse_input([]) --> eos.
 parse_input([[Lhs, Rhs, All] | R]) -->
-    string(S), eol, !,
-    { length(S, L),
-      HL is L / 2,
-      split(S, Lh1, Rh1, HL),
+    string(Cs), eol, !,
+    { length(Cs, L),
+      maplist(priority, Cs, S),
+      split(S, Lh1, Rh1, L / 2),
       sort(S, All),
       sort(Lh1, Lhs),
       sort(Rh1, Rhs) },
