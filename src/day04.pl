@@ -11,16 +11,16 @@ count(Goal, Ls, R) :-
     include(Goal, Ls, Cls),
     length(Cls, R).
 
-has_subs([_, Lhi, _, Rhi]) :- Rhi =< Lhi.
-has_intr([_, Lhi, Rlo, _]) :- Rlo =< Lhi.
+has_subs([Llo, Lhi, Rlo, Rhi]) :-
+    (forall(between(Llo, Lhi, X), between(Rlo, Rhi, X))
+    ; forall(between(Rlo, Rhi, X), between(Llo, Lhi, X))).
+has_intr([Llo, Lhi, Rlo, Rhi]) :-
+    between(Llo, Lhi, X), between(Rlo, Rhi, X).
 
 parse_input([]) --> eos.
 parse_input([[Llo, Lhi, Rlo, Rhi] | R]) -->
-    integer(Alo), `-`, integer(Ahi),
+    integer(Llo), `-`, integer(Lhi),
     `,`,
-    integer(Blo), `-`, integer(Bhi),
+    integer(Rlo), `-`, integer(Rhi),
     eol, !,
-    { (Alo = Blo -> ([Llo, Rlo] = [Alo, Blo], msort([Ahi, Bhi], [Rhi, Lhi])))
-      ; (Alo < Blo -> [Llo, Lhi, Rlo, Rhi] = [Alo, Ahi, Blo, Bhi])
-      ; [Llo, Lhi, Rlo, Rhi] = [Blo, Bhi, Alo, Ahi] },
     parse_input(R).
