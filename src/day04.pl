@@ -11,8 +11,8 @@ count(Goal, Ls, R) :-
     include(Goal, Ls, Cls),
     length(Cls, R).
 
-has_subs([Llo, Lhi, Rlo, Rhi]) :- Llo =< Rlo, Rhi =< Lhi.
-has_intr([Llo, Lhi, Rlo, Rhi]) :- Llo =< Rlo, Rlo =< Lhi.
+has_subs([_, Lhi, _, Rhi]) :- Rhi =< Lhi.
+has_intr([_, Lhi, Rlo, _]) :- Rlo =< Lhi.
 
 parse_input([]) --> eos.
 parse_input([[Llo, Lhi, Rlo, Rhi] | R]) -->
