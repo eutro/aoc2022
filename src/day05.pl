@@ -3,7 +3,7 @@
 :- use_module(library(lists)).
 
 main :-
-    phrase_from_stream((parse_crates(Crates), parse_insns(Insns)), current_input),
+    phrase_from_stream(parse_input(Crates, Insns), current_input),
     run_and_look(Insns, Crates, cm9000, P1),
     write(P1),nl,
     run_and_look(Insns, Crates, cm9001, P2),
@@ -11,10 +11,8 @@ main :-
 
 run_and_look(Insns, Crates, Machine, R) :-
     run_insns(Insns, Crates, Machine, CratesRun),
-    maplist(first, CratesRun, Top),
+    maplist([[A|_],A]>>true, CratesRun, Top),
     string_codes(R, Top).
-
-first([A|_], A).
 
 run_insns([], C, _, C).
 run_insns([Insn | Rest], Crates, Machine, R) :-
@@ -42,28 +40,27 @@ move(cm9001, N, F, T, F1, T1) :-
     append(Moved, F1, F),
     append(Moved, T, T1).
 
-parse_insns([Insn | R]) --> parse_insn(Insn), parse_insns(R).
-parse_insns([]) --> eos.
-
-parse_insn([N, From, To]) -->
-    `move `, integer(N), ` from `, integer(From), ` to `, integer(To), eol.
-
-parse_single_crate(Crate) --> `[`, string([Crate]), `]`, !.
-parse_single_crate(false) --> `   `, !.
-parse_crate_row([Crate | R]) --> parse_single_crate(Crate), parse_crow_tail(R).
-parse_crow_tail([]) --> eol.
-parse_crow_tail(R) --> ` `, !, parse_crate_row(R).
-
-parse_crate_rows([Row | Rest]) -->
-    parse_crate_row(Row),
-    parse_crate_rows(Rest).
-parse_crate_rows([]) --> parse_last_row.
-
-parse_last_row -->
-    ` `, (digit(_) ; ` `), !, ` `,
-    (` ` -> parse_last_row ; eol, eol).
+parse_input(Crates, Insns) --> parse_crates(Crates), eol, parse_insns(Insns).
 
 parse_crates(Crates) -->
     parse_crate_rows(Rows),
     { transpose(Rows, TRows),
       maplist(include(\=(false)), TRows, Crates) }.
+
+parse_crate_rows([Row | Rest]) --> parse_crate_row(Row), parse_crate_rows(Rest).
+parse_crate_rows([]) --> parse_last_row.
+
+parse_last_row --> ` `, (digit(_) ; ` `), !, ` `, (` ` -> parse_last_row ; eol).
+
+parse_crate_row([Crate | R]) --> parse_single_crate(Crate), parse_crate_row_tail(R).
+
+parse_single_crate(Crate) --> `[`, string([Crate]), `]`, !.
+parse_single_crate(false) --> `   `, !.
+
+parse_crate_row_tail([]) --> eol.
+parse_crate_row_tail(R) --> ` `, !, parse_crate_row(R).
+
+parse_insns([Insn | R]) --> parse_insn(Insn), parse_insns(R).
+parse_insns([]) --> eos.
+
+parse_insn([N, From, To]) --> `move `, integer(N), ` from `, integer(From), ` to `, integer(To), eol.
