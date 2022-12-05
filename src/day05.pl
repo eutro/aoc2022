@@ -47,18 +47,18 @@ parse_crates(Crates) -->
     { transpose(Rows, TRows),
       maplist(include(\=(false)), TRows, Crates) }.
 
-parse_crate_rows([Row | Rest]) --> parse_crate_row(Row), parse_crate_rows(Rest).
+parse_crate_rows([Row | Rest]) --> parse_crate_row(Row), !, parse_crate_rows(Rest).
 parse_crate_rows([]) --> parse_last_row.
 
-parse_last_row --> ` `, (digit(_) ; ` `), !, ` `, (` ` -> parse_last_row ; eol).
+parse_last_row --> ` `, (digit(_) ; ` `), ` `, (` ` -> parse_last_row ; eol).
 
 parse_crate_row([Crate | R]) --> parse_single_crate(Crate), parse_crate_row_tail(R).
 
-parse_single_crate(Crate) --> `[`, string([Crate]), `]`, !.
-parse_single_crate(false) --> `   `, !.
+parse_single_crate(Crate) --> `[`, string([Crate]), `]`.
+parse_single_crate(false) --> `   `.
 
 parse_crate_row_tail([]) --> eol.
-parse_crate_row_tail(R) --> ` `, !, parse_crate_row(R).
+parse_crate_row_tail(R) --> ` `, parse_crate_row(R).
 
 parse_insns([Insn | R]) --> parse_insn(Insn), parse_insns(R).
 parse_insns([]) --> eos.
