@@ -1,66 +1,56 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
 :- use_module(library(lists)).
+:- use_module(library(apply)).
 
 main :-
-    phrase_from_stream(parse_input(Crates, Insns), current_input),
-    run_and_look(Insns, Crates, cm9000, P1),
-    write(P1),nl,
-    run_and_look(Insns, Crates, cm9001, P2),
-    write(P2),nl.
+    phrase_from_stream(input(Crates, Insns), current_input),
+    forall(member(Machine, [cm9000, cm9001]),
+           (run_and_look(Machine, Insns, Crates, Ans),
+            writeln(Ans))).
 
-run_and_look(Insns, Crates, Machine, R) :-
-    run_insns(Insns, Crates, Machine, CratesRun),
-    maplist([[A|_],A]>>true, CratesRun, Top),
-    string_codes(R, Top).
+run_and_look(Machine, Insns, Crates0, Res) :-
+    foldl(run_insn(Machine), Insns, Crates0, Crates),
+    maplist(nth0(0), Crates, Top),
+    string_codes(Res, Top).
 
-run_insns([], C, _, C).
-run_insns([Insn | Rest], Crates, Machine, R) :-
-    run_insn(Insn, Crates, Machine, C1),
-    run_insns(Rest, C1, Machine, R).
-
-run_insn([N, From, To], Crates, Machine, R) :-
-    nth1(From, Crates, FStack),
-    nth1(To, Crates, TStack),
+run_insn(Machine, [N, From, To], Crates0, Crates) :-
+    nth1(From, Crates0, FStack),
+    nth1(To, Crates0, TStack),
     move(Machine, N, FStack, TStack, FStack1, TStack1),
-    replace(Crates, From, FStack1, C1),
-    replace(C1, To, TStack1, R).
+    replace(Crates0, From, FStack1, Crates1),
+    replace(Crates1, To, TStack1, Crates).
 
-replace(L, I, E, O) :-
-    nth1(I, L, _, R),
-    nth1(I, O, E, R).
-
-move(cm9000, 0, F, T, F, T).
-move(cm9000, N, [A|F], T, F1, T1) :-
-    N1 #= N - 1,
-    move(cm9000, N1, F, [A|T], F1, T1).
-
-move(cm9001, N, F, T, F1, T1) :-
-    length(Moved, N),
-    append(Moved, F1, F),
+move(Machine, N, F, T, F1, T1) :-
+    length(Moved0, N),
+    append(Moved0, F1, F),
+    maybe_rev(Machine, Moved0, Moved),
     append(Moved, T, T1).
 
-parse_input(Crates, Insns) --> parse_crates(Crates), eol, parse_insns(Insns).
+replace(L, I, E, O) :- nth1(I, L, _, R), nth1(I, O, E, R).
 
-parse_crates(Crates) -->
-    parse_crate_rows(Rows),
+maybe_rev(cm9000, M0, M) :- reverse(M0, M).
+maybe_rev(cm9001, M, M).
+
+input(Crates, Insns) --> crates(Crates), eol, insns(Insns).
+
+crates(Crates) -->
+    rows(Rows),
     { transpose(Rows, TRows),
-      maplist(include(\=(false)), TRows, Crates) }.
+      maplist(append, TRows, Crates) }.
 
-parse_crate_rows([Row | Rest]) --> parse_crate_row(Row), !, parse_crate_rows(Rest).
-parse_crate_rows([]) --> parse_last_row.
+rows([Row | Tail]) --> row(Row), rows(Tail).
+rows([]) --> ` 1 `, string(_), eol.
 
-parse_last_row --> ` `, (digit(_) ; ` `), ` `, (` ` -> parse_last_row ; eol).
+row([Crate | Tl]) --> crate(Crate), row_tail(Tl).
 
-parse_crate_row([Crate | R]) --> parse_single_crate(Crate), parse_crate_row_tail(R).
+crate([Crate]) --> `[`, [Crate], `]`.
+crate([]) --> `   `.
 
-parse_single_crate(Crate) --> `[`, string([Crate]), `]`.
-parse_single_crate(false) --> `   `.
+row_tail([]) --> eol.
+row_tail(Row) --> ` `, row(Row).
 
-parse_crate_row_tail([]) --> eol.
-parse_crate_row_tail(R) --> ` `, parse_crate_row(R).
+insns([]) --> eos.
+insns([Insn | R]) --> insn(Insn), insns(R).
 
-parse_insns([Insn | R]) --> parse_insn(Insn), parse_insns(R).
-parse_insns([]) --> eos.
-
-parse_insn([N, From, To]) --> `move `, integer(N), ` from `, integer(From), ` to `, integer(To), eol.
+insn([N, From, To]) --> `move `, integer(N), ` from `, integer(From), ` to `, integer(To), eol.

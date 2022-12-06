@@ -1,26 +1,17 @@
 :- use_module(library(dcg/basics)).
 
 main :-
-    phrase_from_stream(parse_input(Input), current_input),
-    count(has_subs, Input, P1),
-    write(P1),nl,!,
-    count(has_intr, Input, P2),
-    write(P2),nl.
+    phrase_from_stream(assignments(Assignments), current_input),
+    forall(member(Goal, [has_subs, has_intr]),
+           (count(Goal, Assignments, Ans),
+            writeln(Ans))).
 
-count(Goal, Ls, R) :-
-    include(Goal, Ls, Cls),
-    length(Cls, R).
+count(Goal, Ls, R) :- include(Goal, Ls, Cls), length(Cls, R).
 
-has_subs([Llo, Lhi, Rlo, Rhi]) :-
-    (forall(between(Llo, Lhi, X), between(Rlo, Rhi, X))
-    ; forall(between(Rlo, Rhi, X), between(Llo, Lhi, X))).
-has_intr([Llo, Lhi, Rlo, Rhi]) :-
-    between(Llo, Lhi, X), between(Rlo, Rhi, X).
+has_subs(p(i(Llo, Lhi), i(Rlo, Rhi))) :- forall(between(Llo, Lhi, X), between(Rlo, Rhi, X)).
+has_subs(p(i(Llo, Lhi), i(Rlo, Rhi))) :- forall(between(Rlo, Rhi, X), between(Llo, Lhi, X)).
+has_intr(p(i(Llo, Lhi), i(Rlo, Rhi))) :- between(Llo, Lhi, X), between(Rlo, Rhi, X).
 
-parse_input([]) --> eos.
-parse_input([[Llo, Lhi, Rlo, Rhi] | R]) -->
-    integer(Llo), `-`, integer(Lhi),
-    `,`,
-    integer(Rlo), `-`, integer(Rhi),
-    eol, !,
-    parse_input(R).
+assignments([]) --> eos.
+assignments([p(Lhs, Rhs) | Tail]) --> interval(Lhs), `,`, interval(Rhs), eol, assignments(Tail).
+interval(i(Lo, Hi)) --> integer(Lo), `-`, integer(Hi).

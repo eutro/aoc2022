@@ -1,42 +1,41 @@
+:- use_module(library(dcg/basics)).
+:- use_module(library(clpfd)).
+
 main :-
-    stream_to_lazy_list(current_input, InCodes),
-    lazy_list_materialize(InCodes),
-    string_codes(InStr, InCodes),
-    split_string(InStr, "\n", "\n", GamesRaw),
-    maplist(string_chars, GamesRaw, GamesChr),
-    maplist(simulate_game, GamesChr, GameScores),
-    sum_list(GameScores, TotalScore),
-    write(TotalScore),nl,
-    maplist(simulate_game2, GamesChr, GameScores2),
-    sum_list(GameScores2, TotalScore2),
-    write(TotalScore2),nl.
+    phrase_from_stream(games(Games), current_input),
+    forall(member(Mode, [direct, victory]),
+           (maplist(simulate_game(Mode), Games, GameScores),
+            sum_list(GameScores, TotalScore),
+            writeln(TotalScore))).
 
-simulate_game(GameChr, Score) :-
-    %write("Simulating "),write(GameRaw),nl,
-    choice_score(GameChr, ChoiceScore),
-    outcome_score(GameChr, OutcomeScore),
-    Score is ChoiceScore + OutcomeScore.
+games([]) --> eos.
+games([Game | Tail]) --> game(Game), games(Tail).
+game(strat(A, B)) --> [A, 0' , B], eol.
 
-simulate_game2(GameChr, Score) :-
-    find_choice(GameChr, Choice),
-    [L, _, _] = GameChr,
-    simulate_game([L, _, Choice], Score).
+simulate_game(direct, Game, Score) :-
+    choice_score(Game, ChoiceScore),
+    outcome_score(Game, OutcomeScore),
+    Score #= ChoiceScore + OutcomeScore.
 
-choice_score([_, _, 'X'], 1).
-choice_score([_, _, 'Y'], 2).
-choice_score([_, _, 'Z'], 3).
+simulate_game(victory, Strat, Score) :-
+    find_game(Strat, Game),
+    simulate_game(direct, Game, Score).
 
-find_choice([X, _, 'X'], R) :- find_choice(X, 0, R).
-find_choice([X, _, 'Y'], R) :- find_choice(X, 3, R).
-find_choice([X, _, 'Z'], R) :- find_choice(X, 6, R).
-find_choice(X, N, R) :- outcome_score([X, _, R], N).
+choice_score(strat(_, 0'X), 1).
+choice_score(strat(_, 0'Y), 2).
+choice_score(strat(_, 0'Z), 3).
 
-outcome_score(['A', _, 'X'], 3).
-outcome_score(['A', _, 'Y'], 6).
-outcome_score(['A', _, 'Z'], 0).
-outcome_score(['B', _, 'X'], 0).
-outcome_score(['B', _, 'Y'], 3).
-outcome_score(['B', _, 'Z'], 6).
-outcome_score(['C', _, 'X'], 6).
-outcome_score(['C', _, 'Y'], 0).
-outcome_score(['C', _, 'Z'], 3).
+find_game(strat(Lhs, 0'X), Strat) :- find_game(Lhs, 0, Strat).
+find_game(strat(Lhs, 0'Y), Strat) :- find_game(Lhs, 3, Strat).
+find_game(strat(Lhs, 0'Z), Strat) :- find_game(Lhs, 6, Strat).
+find_game(Lhs, Score, Strat) :- Strat = strat(Lhs, _), outcome_score(Strat, Score).
+
+outcome_score(strat(0'A, 0'X), 3).
+outcome_score(strat(0'A, 0'Y), 6).
+outcome_score(strat(0'A, 0'Z), 0).
+outcome_score(strat(0'B, 0'X), 0).
+outcome_score(strat(0'B, 0'Y), 3).
+outcome_score(strat(0'B, 0'Z), 6).
+outcome_score(strat(0'C, 0'X), 6).
+outcome_score(strat(0'C, 0'Y), 0).
+outcome_score(strat(0'C, 0'Z), 3).
