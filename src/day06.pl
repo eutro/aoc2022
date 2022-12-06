@@ -1,9 +1,8 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
-:- use_module(library(lists)).
 
 main :-
-    phrase_from_stream(remainder(Line), current_input),
+    stream_to_lazy_list(current_input, Line),
     phrase(marker(4, P1), Line),
     write(P1),nl,
     phrase(marker(14, P2), Line),
