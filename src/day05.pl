@@ -2,6 +2,7 @@
 :- use_module(library(clpfd)).
 :- use_module(library(lists)).
 :- use_module(library(apply)).
+:- use_module(util).
 
 main :-
     phrase_from_stream(input(Crates, Insns), current_input),
@@ -50,7 +51,5 @@ crate([]) --> `   `.
 row_tail([]) --> eol.
 row_tail(Row) --> ` `, row(Row).
 
-insns([]) --> eos.
-insns([Insn | R]) --> insn(Insn), insns(R).
-
+insns(Insns) --> seqof(insn, [], eos, Insns).
 insn([N, From, To]) --> `move `, integer(N), ` from `, integer(From), ` to `, integer(To), eol.

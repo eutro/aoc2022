@@ -1,5 +1,6 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
+:- use_module(util).
 
 main :-
     phrase_from_stream(games(Games), current_input),
@@ -8,8 +9,7 @@ main :-
             sum_list(GameScores, TotalScore),
             writeln(TotalScore))).
 
-games([]) --> eos.
-games([Game | Tail]) --> game(Game), games(Tail).
+games(Strats) --> seqof(game, [], eos, Strats).
 game(strat(A, B)) --> [A, 0' , B], eol.
 
 simulate_game(direct, Game, Score) :-

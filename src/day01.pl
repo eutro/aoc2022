@@ -1,4 +1,5 @@
 :- use_module(library(dcg/basics)).
+:- use_module(util).
 
 main :-
     phrase_from_stream(elves(Elves), current_input),
@@ -10,8 +11,5 @@ main :-
             sum_list(Top, Ans),
             writeln(Ans))).
 
-elves([]) --> eos.
-elves([Elf | Tail]) --> elf(Elf), elves(Tail).
-
-elf([]) --> eol.
-elf([Food | Tail]) --> integer(Food), eol, elf(Tail).
+elves(Elves) --> seqof(elf, [], eos, Elves).
+elf(Elf) --> seqof1(integer, eol, eol, Elf).

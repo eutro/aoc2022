@@ -1,6 +1,7 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
 :- use_module(library(ordsets)).
+:- use_module(util).
 
 main :-
     phrase_from_stream(bags(Bags), current_input),
@@ -28,10 +29,8 @@ step_mode(groups, [A, B, C | Tail], Tail, X) :-
     ord_intersection(AS, BS, AB),
     ord_intersection(AB, CS, [X]).
 
-bags([]) --> eos.
-bags([S | R]) -->
-    string(Cs), eol, !, bags(R),
-    { maplist(priority, Cs, S) }.
+bags(Bags) --> seqof(bag, eol, eos, Bags).
+bag(Bag) --> ntmap(maplist(priority), string1, Bag).
 
 priority(C, R) :- 0'a =< C, C =< 0'z, R #= C - 0'a + 1.
 priority(C, R) :- 0'A =< C, C =< 0'Z, R #= C - 0'A + 27.
