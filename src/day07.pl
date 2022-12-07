@@ -4,7 +4,7 @@
 main :-
     '$INPUT="$(awk $COMMANDS)"'(Cmds),
     'eval'(Cmds, Fs),
-    'du'(Fs, Sizes),
+    'du -b'(Fs, Sizes),
 
     % 'tree'(Fs),
 
@@ -19,7 +19,7 @@ main :-
 'echo'(X) :- writeln(X).
 
 'find -size +$(($USED - 40000000)) | head -1'(Fs, Sizes, ToDel) :-
-    'stat -c %s'(Fs, Used),
+    'du -bs'(Fs, Used),
     ToFree #= Used - 40000000,
     member(ToDel, Sizes),
     ToDel >= ToFree,!.
@@ -28,38 +28,33 @@ main :-
     include(>=(100000), Sizes, Small),
     sum_list(Small, Ans).
 
-'du'(Fs, Dirs) :-
-    'stat -c %s'(Fs, _),
-    'find -type d'(Fs, UDirs), msort(UDirs, Dirs).
-'find -type d'(file(_), []).
-'find -type d'(dir(Sz, Map), [Sz | Children]) :-
-    rb_visit(Map, Pairs),
-    maplist([_-Child, Out] >> 'find -type d'(Child, Out), Pairs, ChildLists),
+'du -b'(Fs, Dirs) :- 'find -type d'(Fs, UDirs), msort(UDirs, Dirs).
+'find -type d'(_-(_, file), []).
+'find -type d'(_-(Sz, dir(Files)), [Sz | Children]) :-
+    maplist('find -type d', Files, ChildLists),
     append(ChildLists, Children).
 
 'eval'(Cmds, Fs) :-
-    rb_empty(Empty),
-    foldl('eval', Cmds, s(dir(_, Empty), []), s(Fs, _)).
+    Fs = `/`-(_, dir(_)),
+    foldl('eval', Cmds, [Fs], _).
 
-'eval'(cd(`..`), s(M, [_ | Cwd]), s(M, Cwd)) :- !.
-'eval'(cd(`/`), s(M, _), s(M, [])) :- !.
-'eval'(cd(Dir), s(M, Cwd0), s(M, [Dir | Cwd0])).
-'eval'(ls(Files), s(M0, Cwd), s(M, Cwd)) :- foldl('mkdir -p $1 && touch $2'(Cwd), Files, M0, M).
+'eval'(cd(`..`), [_ | Cwd], Cwd) :- !.
+'eval'(cd(`/`), Cwd0, [Fs]) :- !, append(_, [Fs], Cwd0).
+'eval'(cd(Name), Cwd0, [Dir | Cwd0]) :-
+    [_-(_, dir(Files)) | _] = Cwd0,
+    Dir = Name-(_, dir(_)),
+    member(Dir, Files).
 
-'mkdir -p $1 && touch $2'(Cwd, File, M0, M) :-
-    reverse(Cwd, Rcwd),
-    'mkdir -p $1 && touch $2 | cat'(Rcwd, File, M0, M).
+'eval'(ls(Files), Cwd, Cwd) :-
+    [_-(Size, dir(Children)) | _] = Cwd,
+    maplist('stat -c "dir(%n,%s,$(ls $1))"', Files, Children),
+    maplist('du -bs', Children, ChildSizes),
+    sum(ChildSizes, #=, Size).
 
-'mkdir -p $1 && touch $2 | cat'([], file(Size, Name), dir(Sz, M0), dir(Sz, M)) :-
-    rb_insert(M0, Name, file(Size), M).
-'mkdir -p $1 && touch $2 | cat'([], dir(Dirname), dir(Sz, M0), dir(Sz, M)) :-
-    (rb_empty(Empty), rb_insert_new(M0, Dirname, dir(_, Empty), M)
-    ; true).
+'du -bs'(_-(Size, _), Size).
 
-'mkdir -p $1 && touch $2 | cat'([Dir | Tail], File, dir(Sz, M0), dir(Sz, M)) :-
-    (rb_lookup(Dir, N0, M0) ; rb_empty(Empty), N0 = dir(_, Empty)),
-    'mkdir -p $1 && touch $2 | cat'(Tail, File, N0, N),
-    rb_insert(M0, Dir, N, M).
+'stat -c "dir(%n,%s,$(ls $1))"'(file(Size, Name), Name-(Size, file)).
+'stat -c "dir(%n,%s,$(ls $1))"'(dir(Name), Name-(_, dir(_))).
 
 'awk $COMMANDS'([]) --> eos.
 'awk $COMMANDS'([Cmd | Tail]) --> 'awk $CMD'(Cmd), !, 'awk $COMMANDS'(Tail).
@@ -72,26 +67,3 @@ main :-
 
 'awk $FILE'(dir(Dirname)) --> `dir `, string_without(`\n`, Dirname).
 'awk $FILE'(file(Size, Name)) --> integer(Size), ` `, string_without(`\n`, Name).
-
-'stat -c %s'(file(Size), Size).
-'stat -c %s'(dir(Size, Map), Size) :-
-    var(Size),
-    rb_fold([_-Val, S0, S]>>
-            ('stat -c %s'(Val, So),
-             S #= So + S0),
-            Map, 0, Size).
-'stat -c %s'(dir(Size, _), Size).
-
-'tree'(Fs) :- 'tree'(0, `/`, Fs).
-'tree'(I, Name, dir(Sz, Map)) :-
-    'stat -c "%n (%F,%s)"'(I, Name, (directory, Sz)),
-    I1 #= I + 1,
-    forall(rb_in(Key, Val, Map),
-           (Val = file(Size)
-           -> 'stat -c "%n (%F,%s)"'(I1, Key, ('regular file', Size))
-           ; 'tree'(I1, Key, Val))).
-
-'stat -c "%n (%F,%s)"'(I, Codes, Tag) :-
-    string_codes(Str, Codes),
-    forall(between(1, I, _), write("  ")),
-    write("- "), write(Str), write(" ("), write(Tag), write(")"), nl.
