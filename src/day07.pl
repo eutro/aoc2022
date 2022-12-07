@@ -31,24 +31,25 @@ main :-
 'du -b'(Fs, Dirs) :- 'find -type d'(Fs, UDirs), msort(UDirs, Dirs).
 'find -type d'(_-(_, file), []).
 'find -type d'(_-(Sz, dir(Files)), [Sz | Children]) :-
-    maplist('find -type d', Files, ChildLists),
+    rb_visit(Files, FilesLs),
+    maplist('find -type d', FilesLs, ChildLists),
     append(ChildLists, Children).
 
-'eval'(Cmds, Fs) :-
-    Fs = `/`-(_, dir(_)),
+'eval'(Cmds, '/'-Fs) :-
+    Fs = (_, dir(_)),
     foldl('eval', Cmds, [Fs], _).
 
 'eval'(cd(`..`), [_ | Cwd], Cwd) :- !.
 'eval'(cd(`/`), Cwd0, [Fs]) :- !, append(_, [Fs], Cwd0).
 'eval'(cd(Name), Cwd0, [Dir | Cwd0]) :-
-    [_-(_, dir(Files)) | _] = Cwd0,
-    Dir = Name-(_, dir(_)),
-    member(Dir, Files).
+    [(_, dir(Files)) | _] = Cwd0,
+    rb_lookup(Name, Dir, Files).
 
 'eval'(ls(Files), Cwd, Cwd) :-
-    [_-(Size, dir(Children)) | _] = Cwd,
-    maplist('stat -c "dir(%n,%s,$(ls $1))"', Files, Children),
-    maplist('du -bs', Children, ChildSizes),
+    [(Size, dir(Children)) | _] = Cwd,
+    maplist('stat -c "dir(%n,%s,$(ls $1))"', Files, ChildrenLs),
+    maplist('du -bs', ChildrenLs, ChildSizes),
+    list_to_rbtree(ChildrenLs, Children),
     sum(ChildSizes, #=, Size).
 
 'du -bs'(_-(Size, _), Size).
