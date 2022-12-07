@@ -2,7 +2,7 @@
 :- use_module(library(clpfd)).
 
 main :-
-    phrase_from_stream('awk $COMMANDS'(Cmds), current_input),
+    '$INPUT = awk $COMMANDS'(Cmds),
     'eval'(Cmds, Fs),
     'du'(Fs, Sizes),
 
@@ -13,6 +13,8 @@ main :-
 
     'find -size +$(($USED - 40000000)) | head -1'(Fs, Sizes, P2),
     'echo'(P2).
+
+'$INPUT = awk $COMMANDS'(Cmds) :- phrase_from_stream('awk $COMMANDS'(Cmds), current_input).
 
 'echo'(X) :- writeln(X).
 
