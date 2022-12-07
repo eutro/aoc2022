@@ -1,51 +1,49 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
-:- use_module(library(lists)).
-:- use_module(library(apply)).
-:- use_module(util).
 
 main :-
     phrase_from_stream(commands(Cmds), current_input),
-    simulate_all(Cmds, Fs),
-    sizeof(Fs, Used),
-    alldirs(Fs, Dirs),
-    maplist([dir(Sz,_),Sz]>>true, Dirs, USizes),
-    msort(USizes, Sizes),
-    include(>=(100000), Sizes, FSizes),
-    sum_list(FSizes, Total),
-    writeln(Total),
-    ToFree #= Used - 40000000,
-    include(=<(ToFree), Sizes, [ToDel|_]),
-    writeln(ToDel),
-    true.
+    'eval'(Cmds, Fs),
+    'du'(Fs, Sizes),
 
-alldirs(file(_), []).
-alldirs(Dir, [Dir | Children]) :-
-    Dir = dir(_, Map),
+    % 'tree'(Fs),
+
+    'find -size -100000c'(Sizes, P1),
+    'echo'(P1),
+
+    'find -size +$(($USED - 40000000)) | head -1'(Fs, Sizes, P2),
+    'echo'(P2).
+
+'echo'(X) :- writeln(X).
+
+'find -size +$(($USED - 40000000)) | head -1'(Fs, Sizes, ToDel) :-
+    sizeof(Fs, Used),
+    ToFree #= Used - 40000000,
+    member(ToDel, Sizes),
+    ToDel >= ToFree,!.
+
+'find -size -100000c'(Sizes, Ans) :-
+    include(>=(100000), Sizes, Small),
+    sum_list(Small, Ans).
+
+'du'(Fs, Dirs) :- sizeof(Fs, _), 'find -type d'(Fs, UDirs), msort(UDirs, Dirs).
+'find -type d'(file(_), []).
+'find -type d'(dir(Sz, Map), [Sz | Children]) :-
     rb_visit(Map, Pairs),
-    maplist([_-Child, Out]>>alldirs(Child, Out), Pairs, ChildLists),
+    maplist([_-Child, Out]>>'find -type d'(Child, Out), Pairs, ChildLists),
     append(ChildLists, Children).
 
-sizeof(file(Size), Size).
-sizeof(dir(Size, Map), Size) :-
-    rb_fold([_-Val, S0, S]>>
-            (sizeof(Val, So),
-             S #= So + S0),
-            Map,
-            0,
-            Size).
-
-simulate_all(Cmds, Map) :-
+'eval'(Cmds, Fs) :-
     rb_empty(Empty),
-    foldl(simulate, Cmds, s(dir(_, Empty), []), s(Map, _)).
+    foldl('eval', Cmds, s(dir(_, Empty), []), s(Fs, _)).
 
-simulate(cd(`..`), s(M, [_ | Cwd]), s(M, Cwd)) :- !.
-simulate(cd(`/`), s(M, _), s(M, [])) :- !.
-simulate(cd(Dir), s(M, Cwd0), s(M, [Dir | Cwd0])).
+'eval'(cd(`..`), s(M, [_ | Cwd]), s(M, Cwd)) :- !.
+'eval'(cd(`/`), s(M, _), s(M, [])) :- !.
+'eval'(cd(Dir), s(M, Cwd0), s(M, [Dir | Cwd0])).
+'eval'(ls(Files), s(M0, Cwd), s(M, Cwd)) :-
+    foldl('mkdir -p $1 && touch $2'(Cwd), Files, M0, M).
 
-simulate(ls(Files), s(M0, Cwd), s(M, Cwd)) :- foldl(mapfile(Cwd), Files, M0, M).
-
-mapfile(Cwd, File, M0, M) :-
+'mkdir -p $1 && touch $2'(Cwd, File, M0, M) :-
     reverse(Cwd, Rcwd),
     addfile(Rcwd, File, M0, M).
 
@@ -72,15 +70,25 @@ files([]) --> string_without(`$`, []).
 file(dir(Dirname)) --> `dir `, string_without(`\n`, Dirname).
 file(file(Size, Name)) --> integer(Size), ` `, string_without(`\n`, Name).
 
-pp_map(Map) :- pp_map(0, `/`, Map).
-pp_map(I, Name, dir(Sz, Map)) :-
-    pp_head(I, Name, (dir, size=Sz)),
+sizeof(file(Size), Size).
+sizeof(dir(Size, Map), Size) :-
+    var(Size),
+    rb_fold([_-Val, S0, S]>>
+            (sizeof(Val, So),
+             S #= So + S0),
+            Map, 0, Size).
+sizeof(dir(Size, _), Size).
+
+'tree'(Fs) :- 'tree'(0, `/`, Fs).
+'tree'(I, Name, dir(Sz, Map)) :-
+    'stat -c "%n (%F,%s)"'(I, Name, (directory, Sz)),
     I1 #= I + 1,
     forall(rb_in(Key, Val, Map),
-           (Val = file(Size) -> pp_head(I1, Key, (file, size=Size))
-           ; pp_map(I1, Key, Val))).
+           (Val = file(Size)
+           -> 'stat -c "%n (%F,%s)"'(I1, Key, ('regular file', Size))
+           ; 'tree'(I1, Key, Val))).
 
-pp_head(I, Codes, Tag) :-
+'stat -c "%n (%F,%s)"'(I, Codes, Tag) :-
     string_codes(Str, Codes),
     forall(between(1, I, _), write("  ")),
     write("- "), write(Str), write(" ("), write(Tag), write(")"), nl.
