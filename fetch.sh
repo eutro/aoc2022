@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-DIR="$(readlink -f $(dirname "$0"))"
+DIR="$(readlink -f "$(dirname "$0")")"
 cd "$DIR" || exit 1
 
 KEY="$(cat session.key)"
