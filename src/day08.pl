@@ -6,83 +6,55 @@
 
 main :-
     phrase_from_stream(input(Grid), current_input),
-    grid_visible(Grid, Vis),
-    length(Vis, P1),
+    grid_array(Grid, Arr),!,
+    solve(Arr, P1, P2),
     writeln(P1),
-    best_score(Grid, P2),
-    writeln(P2),
-    true.
+    writeln(P2).
 
-best_score(Grid, Best) :-
-    bagof(Score, any_score(Grid, Score), Scores),
-    max_list(Scores, Best).
+move((X, Y), up, (X, Y1)) :- !, Y1 #= Y - 1.
+move((X, Y), down, (X, Y1)) :- !, Y1 #= Y + 1.
+move((X, Y), left, (X1, Y)) :- !, X1 #= X - 1.
+move((X, Y), right, (X1, Y)) :- !, X1 #= X + 1.
 
-any_score(Grid, Score) :-
+grid_array(Grid, Arr) :-
     length(Grid, Height),
-    Height0 #= Height - 1,
-    [Row0 | _] = Grid,
-    length(Row0, Width),
-    Width0 #= Width - 1,
-    between(0, Height0, Y),
-    between(0, Width0, X),
-    look_score(Grid, X, Y, Score).
+    functor(Arr, y, Height),
+    foreach(nth1(I, Grid, Row), ga_row(Arr, I, Row)).
+ga_row(Arr, I, Row) :- arg(I, Arr, RV), RV =.. [x | Row].
 
-look_score(Grid, X, Y, Score) :-
-    look_lr(Grid, X, Y, Left, Right),
-    transpose(Grid, GridT),
-    look_lr(GridT, Y, X, Up, Down),
-    Score #= Left * Right * Up * Down.
+grid_ref(Arr, (X, Y), Val) :-
+    arg(Y, Arr, Row),
+    arg(X, Row, Val).
 
-look_lr(Grid, X, Y, Left, Right) :-
-    nth0(Y, Grid, Row),
-    length(Lhs, X),
-    append(Lhs, [Height | Rhs], Row),
-    look(Height, Rhs, Right),
-    reverse(Lhs, LhsR),
-    look(Height, LhsR, Left).
+solve(Arr, P1, P2) :-
+    functor(Arr, _, Height),
+    arg(1, Arr, Row0),
+    functor(Row0, _, Width),
+    bagof(Pos, inrange(((1,1),(Width,Height)), Pos), Posns),
+    foldl(improve(Arr), Posns, (0, 0), (P1, P2)).
 
-look(Height, Trees, Count) :- look(Height, Trees, 0, Count).
-look(_, [], Acc, Acc).
-look(Height, [Tree | Tl], Acc0, Acc) :-
-    Acc1 #= Acc0 + 1,
-    (Tree #< Height -> look(Height, Tl, Acc1, Acc)
-    ; Acc = Acc1).
+improve(Arr, Pos, (Vis0, Best0), (Vis, Best)) :-
+    foldl(improve0(Arr, Pos), [up,down,left,right], (false, 1), (IsVis, Score)),
+    (IsVis -> Vis #= Vis0 + 1 ; Vis = Vis0),
+    (Best0 < Score -> Best = Score ; Best = Best0).
+improve0(Arr, Pos, Dir, (IsVis0, Score0), (IsVis, Score)) :-
+    look(Arr, Pos, Dir, Dist, SeesEdge),
+    (IsVis0 -> IsVis = true ; IsVis = SeesEdge),
+    Score #= Score0 * Dist.
 
-grid_visible(Grid, Vis) :-
-    grid_row_visible(Grid, VisR),
-    transpose(Grid, GridT),
-    grid_row_visible(GridT, VisCT),
-    maplist([(X,Y),(Y,X)]>>true, VisCT, VisC),
-    append(VisR, VisC, VisU),
-    sort(VisU, Vis).
+look(Arr, From, Dir, Dist, SeesEdge) :-
+    grid_ref(Arr, From, Height),
+    move(From, Dir, From1),
+    look(Arr, From1, Height, Dir, Dist, SeesEdge).
 
-grid_row_visible(Grid, Vis) :- grid_row_visible(Grid, 0, Vis0), append(Vis0, Vis).
-grid_row_visible([], _, []).
-grid_row_visible([Row | Tl], Y, [RVis | Vis]) :-
-    row_bivisible(Row, Y, RVis),
-    Y1 #= Y + 1,
-    grid_row_visible(Tl, Y1, Vis).
-
-row_bivisible(Row, Y, Vis) :-
-    row_visible(Row, Y, 0, 1, VisL),
-    reverse(RRow, Row),
-    length(Row, Len),
-    LenM #= Len - 1,
-    row_visible(RRow, Y, LenM, -1, VisR),
-    append(VisL, VisR, VisBoth),
-    sort(VisBoth, Vis).
-
-row_visible(Row, Y, I0, Inc, Vis) :-
-    I #= I0 + Inc,
-    row_visible(Row, Y, I, Inc, [(I0, Y)], Vis).
-row_visible([P, C | Tl], Y, I, Inc, Vis0, Vis) :-
-    P #< C, !,
-    I1 #= I + Inc, 
-    row_visible([C | Tl], Y, I1, Inc, [(I, Y) | Vis0], Vis).
-row_visible([P, _ | Tl], Y, I, Inc, Vis0, Vis) :-
-    I1 #= I + Inc,
-    row_visible([P | Tl], Y, I1, Inc, Vis0, Vis).
-row_visible(_, _, _, _, Vis, Vis).
+look(Arr, From, Height, Dir, Dist, SeesEdge) :-
+    (grid_ref(Arr, From, HeightHere)
+    -> (HeightHere >= Height
+       -> Dist = 1, SeesEdge = false
+       ; move(From, Dir, From1),
+         look(Arr, From1, Height, Dir, Dist0, SeesEdge),
+         Dist is Dist0 + 1)
+    ; Dist = 0, SeesEdge = true).
 
 input([]) --> eos.
 input([Row | Tail]) -->
