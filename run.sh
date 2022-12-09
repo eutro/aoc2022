@@ -22,6 +22,6 @@ else
     INPUT="$DIR/input/day$DAYP.txt"
 fi
 
-"$DIR/cmp.sh" "$TIME" "$DAY" "$@" || exit 1
+"$DIR/cmp.sh" $TIME "$DAY" "$@" || exit 1
 
 exec "$DIR/out/day$DAYP" < "$INPUT"
