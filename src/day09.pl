@@ -17,8 +17,7 @@ track(Flat, I, Unique) :-
     length(Visited, Unique).
 
 run(I, Vs) -->
-    { length(Rope0, I),
-      maplist([_,(0,0)]>>true, Rope0, Rope) },
+    { length(Rope, I), maplist(=((0,0)), Rope) },
     run(I, Rope, [(0, 0)], Vs).
 run(_, _, Vs, Vs) --> eos.
 run(I, Rope, Vs0, Vs) -->
@@ -34,20 +33,15 @@ move_rope([H | Tl], Dir, [H1 | Tl1], Vs0, Vs1) :-
     move(H, Dir, H1),
     move_tl(H1, Tl, Tl1, Vs0, Vs1).
 
-move_tl(_, [], [], Vs, Vs) :- !.
 move_tl(H1, [X | Tl], [X | Tl], Vs, Vs) :- touching(X, H1), !.
 move_tl(H1, [X], [X1], Vs0, [X1 | Vs0]) :- !, moveto(X, H1, X1).
-move_tl(H1, [X | Tl], [X1 | Tl1], Vs0, Vs) :-
-    moveto(X, H1, X1),
-    move_tl(X1, Tl, Tl1, Vs0, Vs).
-
-norm(0, 0) :- !.
-norm(X, X1) :- X1 is X div abs(X).
+move_tl(H1, [X | Tl], [X1 | Tl1], Vs0, Vs) :- !, moveto(X, H1, X1), move_tl(X1, Tl, Tl1, Vs0, Vs).
+move_tl(_, [], [], Vs, Vs) :- !.
 
 moveto(X, H, X1) :-
     mvby(X, (DX, DY), H),
-    norm(DX, DX1),
-    norm(DY, DY1),
+    DX1 is sign(DX),
+    DY1 is sign(DY),
     mvby(X, (DX1, DY1), X1).
 
 touching((X1, Y1), (X2, Y2)) :-
