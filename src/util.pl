@@ -11,15 +11,22 @@
               array_bounds/2,
               arraylen/2,
               arrayref/3,
-              arrayset/4
+              arrayset/4,
+              grid_letters/2,
+              grid_string/2
           ]).
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
+:- use_module(letters).
 
 seqof(NonTerm, Suff, End, [Elem | Tail]) -->
     call(NonTerm, Elem), Suff, !,
     seqof(NonTerm, Suff, End, Tail).
 seqof(_, _, End, []) --> End.
+
+take(N, Ls, Lhs, Rhs) :-
+    length(Lhs, N),
+    append(Lhs, Rhs, Ls).
 
 seqof1(NonTerm, Suff, End, [Elem | Tail]) -->
     call(NonTerm, Elem), Suff,
@@ -104,3 +111,22 @@ arrayset0(t(V, A), N, X, t(V, A1)) :-
     setarg(I, A1, K1).
 
 arraylen(arr(Bounds, _), Len) :- boundslen(Bounds, Len).
+
+grid_letters(Grid, Letters) :-
+    grid_sletters(Grid, SLetters),
+    maplist(grid_letter, Letters, SLetters).
+
+grid_string(Grid, String) :-
+    grid_letters(Grid, Codes),
+    string_codes(String, Codes).
+
+grid_sletters(Grid, [L | Tl]) :-
+    grid_uncons(Grid, L, Grid1), !,
+    grid_sletters(Grid1, Tl).
+grid_sletters([[],[],[],[],[],[]], []).
+
+grid_uncons(Grid0, L, Grid) :-
+    maplist(take(4), Grid0, L, Rhss),
+    (maplist(take(1), Rhss, Between, Grid),
+     maplist(=([0'.]), Between)
+    ; Grid = Rhss).

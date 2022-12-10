@@ -7,66 +7,36 @@
 main :-
     phrase_from_stream(insns(Insns), current_input),
     exec(Insns, Xs),
-    %writeln(Xs),
     sigstren(Xs, P1),
     writeln(P1),
     draw(Xs, P2),
-    write(P2).
+    writeln(P2).
 
 draw(Xs, Img) :-
     draw(0, Xs, Flat),
-    unflatten(Flat, Codes),
-    string_codes(Img, Codes).
+    unflatten(Flat, Grid),
+    grid_string(Grid, Img).
 
+draw(_, [], []).
 draw(I, [X | Xs], [L | Tl]) :-
-    !,
-    (abs(I mod 40 - X) #=< 1
-    -> L = 0'#
-    ; L = 0'.),
+    (abs(I mod 40 - X) #=< 1 -> L = 0'# ; L = 0'.),
     I1 #= I + 1,
     draw(I1, Xs, Tl).
-draw(_, [], []).
 
-unflatten(Flat, Codes) :-
+unflatten(Flat, [Lhs | Tl]) :-
     length(Lhs, 40),
     append(Lhs, Rhs, Flat), !,
-    append(Lhs, [0'\n | Rhs1], Codes),
-    unflatten(Rhs, Rhs1).
-unflatten(Rem, Rem).
-
-split1(I, Xs, X, Tl) :-
-    I1 #= I - 1,
-    length(Lhs, I1),
-    append(Lhs, Rhs, Xs),
-    [X | Tl] = Rhs.
+    unflatten(Rhs, Tl).
+unflatten(_, []).
 
 sigstren(Xs, R) :-
-    split1(20, Xs, X, Tl), !,
-    R0 is 20 * X,
-    ss(60, Tl, R0, R).
-sigstren(_, 0).
+    T =.. [a | Xs],
+    maplist(ss(T), [20, 60, 100, 140, 180, 220], Ss),
+    sum(Ss, #=, R).
+ss(T, N, R) :- arg(N, T, X), R #= N * X.
 
-ss(I, Xs, R0, R) :-
-    I =< 220,
-    split1(40, Xs, X, Tl), !,
-    %writeln(I-X),
-    S0 is I * X,
-    R1 is R0 + S0,
-    I1 is I + 40,
-    ss(I1, Tl, R1, R).
-ss(_, _, R, R).
-
-exec(Is, Xs) => exec(Is, 1, Xs).
-
-exec([noop | Is], R, [R | Xs]) :- !, exec(Is, R, Xs).
-exec([addx(X) | Is], R, [R, R | Xs]) :-
-    !,
-    R1 #= R + X,
-    exec(Is, R1, Xs).
-exec([], _, []) :- !.
+exec(Is, Xs) => scanl(plus, Is, 1, Xs).
 
 insns([]) --> eos.
-insns([Insn | Insns]) --> insn(Insn), eol, insns(Insns).
-
-insn(noop) --> `noop`.
-insn(addx(N)) --> `addx `, integer(N).
+insns([0 | Insns]) --> `noop`, eol, insns(Insns).
+insns([0, X | Insns]) --> `addx `, integer(X), eol, insns(Insns).
