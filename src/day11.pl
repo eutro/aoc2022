@@ -56,7 +56,6 @@ eval(Old, f(*, N), New) => New is Old * N.
 eval(Old, f(+, N), New) => New is Old + N.
 
 monkeys(Monkeys, States) --> monkeys0(Monkeys, States0), { States =.. [ss | States0] }.
-
 monkeys0([Monkey | Monkeys], [State | States]) -->
     monkey(Monkey, State),
     (eos -> { Monkeys = [], States = [] }
@@ -81,7 +80,6 @@ monkey(monkey{
     `    If false: throw to monkey `, monkeyref(IfF), eol.
 
 monkeyref(I) --> integer(I0), { I is I0 + 1 }.
-
 items([Item | Tl]) --> integer(Item), (`, ` -> items(Tl) ; { Tl = [] }).
 operator(f(F, N)) --> `new = old `, [Op], ` `, integer(N), { atom_codes(F, [Op]) }.
 operator(sqr) --> `new = old * old`.
