@@ -42,8 +42,8 @@ throw_to(I, Ls, S0, S) :-
     sput(I, S0, Si.put([hand=Sih]), S).
 
 sget(I, S, Si) :- arg(I, S, Si).
-% safety: we discard the old state every time, we also don't backtrack
-sput(I, S, Si, S) :- nb_setarg(I, S, Si).
+% safety: we discard the old state every time (we still backtrack in the forall, though)
+sput(I, S, Si, S) :- setarg(I, S, Si).
 
 worry(Mode, M, Worry0, Worry) :- eval(Worry0, M.op, Worry1), manage_worry(Mode, Worry1, Worry).
 manage_worry(p1, W0, W) => W is W0 div 3.
