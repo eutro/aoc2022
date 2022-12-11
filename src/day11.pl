@@ -1,21 +1,15 @@
 :- use_module(library(dcg/basics)).
-:- use_module(library(clpfd)).
-:- use_module(library(lists)).
-:- use_module(library(apply)).
 :- use_module(util).
 
 main :-
     phrase_from_stream(monkeys(Monkeys), current_input),
-    nthround(p1, 20, Monkeys, R20),
-    mbis(R20, P1),
-    writeln(P1),
-
     phrase(mklcm(Lcm), Monkeys),
-    nthround(p2(Lcm), 10000, Monkeys, R10K),
-    mbis(R10K, P2),
-    writeln(P2),
-
-    true.
+    forall(member(r(Mode, N),
+                  [r(p1, 20),
+                   r(p2(Lcm), 10000)]),
+           (nthround(Mode, N, Monkeys, RN),
+            mbis(RN, Ans),
+            writeln(Ans))).
 
 mklcm(Lcm) --> mklcm(1, Lcm).
 mklcm(Lcm, Lcm) --> eos.
@@ -27,20 +21,15 @@ mbis(Ms, Mbis) :-
     append(_, [A, B], Sorted),
     Mbis is A * B.
 
-nthround(_, 0, M, M).
-nthround(Mode, I, M0, M) :-
+nthround(Mode, N, Ms, RN) :-
+    rb_empty(App0),
+    nthround(Mode, Ms, N, App0, RN).
+
+nthround(_, M, 0, _, M).
+nthround(Mode, M0, I, App0, M) :-
     I1 is I - 1,
-    round(Mode, M0, M1),
-    nthround(Mode, I1, M1, M).
-
-write_hands(Monkeys) :-
-    forall(member(M, Monkeys),
-           (writeln(M.idx-M.hand))).
-
-round(Mode, Ms0, Ms) :-
-    rb_empty(Empty),
-    phrase(round(Mode, Empty, App, Ms1), Ms0),
-    maplist(apply_apps(App), Ms1, Ms).
+    phrase(round(Mode, App0, App, M1), M0),
+    nthround(Mode, M1, I1, App, M).
 
 round(_, A, A, []) --> eos.
 round(Mode, App0, App, [M | Tl]) -->
@@ -48,15 +37,7 @@ round(Mode, App0, App, [M | Tl]) -->
     { turn(Mode, M0, M, App0, App1) },
     round(Mode, App1, App, Tl).
 
-apply_apps(App, M, M1) :-
-    (rb_lookup(M.idx, Apps0, App)
-    -> reverse(Apps0, Apps),
-       append(M.hand, Apps, Hand),
-       M1 = M.put([hand=Hand])
-    ; M1 = M).
-
 turn(Mode, M, M.put([hand=[], inspects=Ins]), App0, App) :-
-    %writeln(M.idx-"start"-App0),
     (rb_lookup(M.idx, Apps0, App0)
     -> rb_delete(App0, M.idx, App1),
        reverse(Apps0, Apps)
@@ -64,9 +45,7 @@ turn(Mode, M, M.put([hand=[], inspects=Ins]), App0, App) :-
     append(M.hand, Apps, Hand),
     length(Hand, HandLen),
     Ins is M.inspects + HandLen,
-    phrase(inspect(Mode, M, App1, App), Hand),
-    %writeln(M.idx-"done"-App),
-    true.
+    phrase(inspect(Mode, M, App1, App), Hand).
 
 inspect(_, _, App, App) --> eos.
 inspect(Mode, M, App0, App) -->
@@ -81,8 +60,8 @@ inspect(Mode, M, App0, App) -->
       ; rb_insert_new(App0, T, [Worry], App1)) },
     inspect(Mode, M, App1, App).
 
-manage_worry(p1, W0, W) :- W is W0 div 3.
-manage_worry(p2(Lcm), W0, W) :- W is W0 mod Lcm.
+manage_worry(p1, W0, W) => W is W0 div 3.
+manage_worry(p2(Lcm), W0, W) => W is W0 mod Lcm.
 
 monkeys([Monkey | Monkeys]) -->
     monkey(Monkey),
@@ -90,13 +69,13 @@ monkeys([Monkey | Monkeys]) -->
     ; eol, monkeys(Monkeys)).
 
 monkey(monkey{
-           idx: I,
            hand: Starting,
+           inspects: 0,
+           idx: I,
            op: Op,
            factor: Factor,
            ift: IfT,
-           iff: IfF,
-           inspects: 0
+           iff: IfF
        }) -->
     `Monkey `, integer(I), `:`, eol,
     `  Starting items: `, items(Starting), eol, !,
@@ -105,15 +84,12 @@ monkey(monkey{
     `    If true: throw to monkey `, integer(IfT), eol,
     `    If false: throw to monkey `, integer(IfF), eol.
 
-eval(Old, sqr, New) :- New #= Old * Old.
-eval(Old, Term, New) :-
-    Term =.. [F, N],
-    Calc =.. [F, N, Old],
-    New #= Calc.
+eval(Old, sqr, New) => New is Old * Old.
+eval(Old, f(*, N), New) => New is Old * N.
+eval(Old, f(+, N), New) => New is Old + N.
 
 items([Item | Tl]) --> integer(Item), (`, ` -> items(Tl) ; { Tl = [] }).
-operator(Term) -->
+operator(f(F, N)) -->
     `new = old `, [Op], ` `, integer(N),
-    { atom_codes(F, [Op]),
-      Term =.. [F, N] }.
+    { atom_codes(F, [Op]) }.
 operator(sqr) --> `new = old * old`.
