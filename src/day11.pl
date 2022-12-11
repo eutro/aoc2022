@@ -2,94 +2,86 @@
 :- use_module(util).
 
 main :-
-    phrase_from_stream(monkeys(Monkeys), current_input),
-    phrase(mklcm(Lcm), Monkeys),
+    phrase_from_stream(monkeys(Monkeys, States), current_input),
+    foldl(lcmof, Monkeys, 1, Lcm),
     forall(member(r(Mode, N),
                   [r(p1, 20),
                    r(p2(Lcm), 10000)]),
-           (nthround(Mode, N, Monkeys, RN),
-            mbis(RN, Ans),
+           (nthround(Mode, Monkeys, N, States, Sn),
+            mbis(Sn, Ans),
             writeln(Ans))).
 
-mklcm(Lcm) --> mklcm(1, Lcm).
-mklcm(Lcm, Lcm) --> eos.
-mklcm(Lcm0, Lcm) --> [M], { Lcm1 is lcm(Lcm0, M.factor) }, mklcm(Lcm1, Lcm).
+lcmof(M, Lcm0, Lcm) :- Lcm is lcm(M.factor, Lcm0).
 
-mbis(Ms, Mbis) :-
-    maplist([M, I]>>(I = M.inspects), Ms, Is),
-    msort(Is, Sorted),
-    append(_, [A, B], Sorted),
+mbis(Sn, Mbis) :-
+    Sn =.. [_ | Ms],
+    maplist([M, I]>>(I is -M.inspects), Ms, Is),
+    msort(Is, [A, B | _]),
     Mbis is A * B.
 
-nthround(Mode, N, Ms, RN) :-
-    rb_empty(App0),
-    nthround(Mode, Ms, N, App0, RN).
-
-nthround(_, M, 0, _, M).
-nthround(Mode, M0, I, App0, M) :-
+nthround(_, _, 0, S, S) :- !.
+nthround(Mode, Ms, I, S0, S) :-
     I1 is I - 1,
-    phrase(round(Mode, App0, App, M1), M0),
-    nthround(Mode, M1, I1, App, M).
+    foldl(turn(Mode), Ms, S0, S1),
+    nthround(Mode, Ms, I1, S1, S).
 
-round(_, A, A, []) --> eos.
-round(Mode, App0, App, [M | Tl]) -->
-    [M0],
-    { turn(Mode, M0, M, App0, App1) },
-    round(Mode, App1, App, Tl).
-
-turn(Mode, M, M.put([hand=[], inspects=Ins]), App0, App) :-
-    (rb_lookup(M.idx, Apps0, App0)
-    -> rb_delete(App0, M.idx, App1),
-       reverse(Apps0, Apps)
-    ; App1 = App0, Apps = []),
-    append(M.hand, Apps, Hand),
+turn(Mode, M, S0, S) :-
+    sget(M.idx, S0, Sm),
+    Hand = Sm.hand,
     length(Hand, HandLen),
-    Ins is M.inspects + HandLen,
-    phrase(inspect(Mode, M, App1, App), Hand).
+    Ins is Sm.inspects + HandLen,
+    maplist(worry(Mode, M), Hand, NewHand),
+    partition(check(M), NewHand, ToTrue, ToFalse),
+    sput(M.idx, S0, s{hand: [], inspects: Ins}, S1),
+    throw_to(M.ift, ToTrue, S1, S2),
+    throw_to(M.iff, ToFalse, S2, S).
 
-inspect(_, _, App, App) --> eos.
-inspect(Mode, M, App0, App) -->
-    [Worry0],
-    { eval(Worry0, M.op, Worry1),
-      manage_worry(Mode, Worry1, Worry),
-      (0 is Worry mod M.factor
-      -> T = M.ift
-      ; T = M.iff),
-      (rb_lookup(T, Apps0, App0)
-      -> rb_insert(App0, T, [Worry | Apps0], App1)
-      ; rb_insert_new(App0, T, [Worry], App1)) },
-    inspect(Mode, M, App1, App).
+throw_to(I, Ls, S0, S) :-
+    sget(I, S0, Si),
+    append(Ls, Si.hand, Sih),
+    sput(I, S0, Si.put([hand=Sih]), S).
 
+sget(I, S, Si) :- arg(I, S, Si).
+% safety: we discard the old state every time, we also don't backtrack
+sput(I, S, Si, S) :- nb_setarg(I, S, Si).
+
+worry(Mode, M, Worry0, Worry) :- eval(Worry0, M.op, Worry1), manage_worry(Mode, Worry1, Worry).
 manage_worry(p1, W0, W) => W is W0 div 3.
 manage_worry(p2(Lcm), W0, W) => W is W0 mod Lcm.
 
-monkeys([Monkey | Monkeys]) -->
-    monkey(Monkey),
-    (eos -> { Monkeys = [] }
-    ; eol, monkeys(Monkeys)).
-
-monkey(monkey{
-           hand: Starting,
-           inspects: 0,
-           idx: I,
-           op: Op,
-           factor: Factor,
-           ift: IfT,
-           iff: IfF
-       }) -->
-    `Monkey `, integer(I), `:`, eol,
-    `  Starting items: `, items(Starting), eol, !,
-    `  Operation: `, operator(Op), eol,
-    `  Test: divisible by `, integer(Factor), eol,
-    `    If true: throw to monkey `, integer(IfT), eol,
-    `    If false: throw to monkey `, integer(IfF), eol.
+check(M, Worry) :- 0 is Worry mod M.factor.
 
 eval(Old, sqr, New) => New is Old * Old.
 eval(Old, f(*, N), New) => New is Old * N.
 eval(Old, f(+, N), New) => New is Old + N.
 
+monkeys(Monkeys, States) --> monkeys0(Monkeys, States0), { States =.. [ss | States0] }.
+
+monkeys0([Monkey | Monkeys], [State | States]) -->
+    monkey(Monkey, State),
+    (eos -> { Monkeys = [], States = [] }
+    ; eol, monkeys0(Monkeys, States)).
+
+monkey(monkey{
+           idx: I,
+           op: Op,
+           factor: Factor,
+           ift: IfT,
+           iff: IfF
+       },
+       s{
+           hand: Starting,
+           inspects: 0
+       }) -->
+    `Monkey `, monkeyref(I), `:`, eol,
+    `  Starting items: `, items(Starting), eol, !,
+    `  Operation: `, operator(Op), eol,
+    `  Test: divisible by `, integer(Factor), eol,
+    `    If true: throw to monkey `, monkeyref(IfT), eol,
+    `    If false: throw to monkey `, monkeyref(IfF), eol.
+
+monkeyref(I) --> integer(I0), { I is I0 + 1 }.
+
 items([Item | Tl]) --> integer(Item), (`, ` -> items(Tl) ; { Tl = [] }).
-operator(f(F, N)) -->
-    `new = old `, [Op], ` `, integer(N),
-    { atom_codes(F, [Op]) }.
+operator(f(F, N)) --> `new = old `, [Op], ` `, integer(N), { atom_codes(F, [Op]) }.
 operator(sqr) --> `new = old * old`.
