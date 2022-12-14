@@ -6,37 +6,60 @@ main :-
     drop_sand(s(P1, P2), Cave),
     maplist(writeln, [P1, P2]).
 
-drop_sand(Mode, Cave0) :-
-    extrema(Cave0, _, (_, MaxY)),
-    drop_sand([(500, 0)], Mode, MaxY, Cave0, 0).
-
-drop_sand([], s(_, Count), _, _, Count) :- !.
-drop_sand(Trail, Mode, MaxY, Cave0, Count0) :-
+drop_sand(Mode, Cave) :- drop_sand([(500, 0)], Mode, Cave, 0).
+drop_sand([], s(_, Count), _, Count) :- !.
+drop_sand(Trail, Mode, Cave, Count0) :-
     [(X, Y) | Prev] = Trail,
     Y1 is Y + 1,
     (member(Dx, [0, -1, 1]),
      X1 is X + Dx,
      Pos = (X1, Y1),
-     pos_empty(Mode, Count0, MaxY, Cave0, Pos), !
-    -> drop_sand([Pos | Trail], Mode, MaxY, Cave0, Count0)
-    ; rb_insert(Cave0, (X, Y), 'o', Cave1),
+     pos_empty(Mode, Count0, Cave, Pos), !
+    -> drop_sand([Pos | Trail], Mode, Cave, Count0)
+    ; caveref(Cave, (X, Y), 'o'),
       Count1 is Count0 + 1,
-      drop_sand(Prev, Mode, MaxY, Cave1, Count1)).
+      drop_sand(Prev, Mode, Cave, Count1)).
 
-pos_empty(s(P1, _), Count, MaxY, Cave, Pos) :-
-    \+ rb_lookup(Pos, _, Cave),
+pos_empty(s(P1, _), Count, Cave, Pos) :-
+    caveref(Cave, Pos, Vl),
+    var(Vl),
     Pos = (_, Y),
-    (Y > MaxY
-    -> (var(P1) -> P1 = Count ; true),
-       Y < MaxY + 2
-    ; true).
+    Cave = c((_, (_, MaxY)), _),
+    (Y = MaxY, var(P1) -> P1 = Count ; true).
 
-cave(Cave) --> { rb_empty(Cave0) }, cave(Cave0, Cave).
+caveref(c(Bounds, Arr), Pos, Vl) :-
+    index(Bounds, Pos, I),
+    arg(I, Arr, Vl).
 
-cave(Cave, Cave) --> eos, !.
-cave(Cave0, Cave) --> path(Path), { draw(Path, Cave0, Cave1) }, cave(Cave1, Cave).
+cave(Cave) -->
+    paths(Paths),
+    { append(Paths, Ends),
+      extrema(Ends, (MinX0, _), (MaxX0, MaxY0)),
+      MaxY is MaxY0 + 1,
+      MinX is MinX0 - MaxY,
+      MaxX is MaxX0 + MaxY,
+      Bounds = ((MinX, 0), (MaxX, MaxY)),
+      boundslen(Bounds, Len),
+      functor(Arr, a, Len),
+      Cave = c(Bounds, Arr),
+      maplist(plotpath(Cave), Paths) }.
 
-extrema(Cave, Lo, Hi) :- rb_keys(Cave, Keys), phrase(extrema(Lo, Hi), Keys).
+plotpath(_, [_]).
+plotpath(Cave, [S, E | Tl]) :-
+    (bagof(Pos, inrange((S, E), Pos), Posns) -> true
+    ; bagof(Pos, inrange((E, S), Pos), Posns)),
+    maplist(plotpos(Cave), Posns),
+    plotpath(Cave, [E | Tl]).
+plotpos(Cave, Pos) :- caveref(Cave, Pos, '#').
+
+paths([]) --> eos, !.
+paths([Path | Tl]) --> path(Path), paths(Tl).
+
+path([(X, Y) | Tl]) -->
+    integer(X), `,`, integer(Y),
+    (` -> ` -> path(Tl) ; eol, { Tl = [] }).
+
+extrema(Posns, Lo, Hi) :- phrase(extrema(Lo, Hi), Posns).
 extrema(L, H) --> [Pos], extrema(Pos, Pos, L, H).
 extrema(L, H, L, H) --> eos, !.
 extrema((Lx0, Ly0), (Hx0, Hy0), Lo, Hi) -->
@@ -45,22 +68,11 @@ extrema((Lx0, Ly0), (Hx0, Hy0), Lo, Hi) -->
       Hx is max(Hx0, X), Hy is max(Hy0, Y) },
     extrema((Lx, Ly), (Hx, Hy), Lo, Hi).
 
-draw([_], Cave, Cave) :- !.
-draw([S, E | Tl], Cave0, Cave) :-
-    (bagof(Pos, inrange((S, E), Pos), Posns) -> true
-    ; bagof(Pos, inrange((E, S), Pos), Posns)),
-    foldl(drawpos, Posns, Cave0, Cave1),
-    draw([E | Tl], Cave1, Cave).
-drawpos(Pos, Cave0, Cave) :- rb_insert(Cave0, Pos, '#', Cave).
-
-path([(X, Y) | Tl]) -->
-    integer(X), `,`, integer(Y),
-    (` -> ` -> path(Tl) ; eol, { Tl = [] }).
-
 write_cave(Cave) :-
-    extrema(Cave, (Lx, Ly), (Hx, Hy)),
-    forall(between(Ly, Hy, Y),
-           (forall(between(Lx, Hx, X),
-                   ((rb_lookup((X, Y), Vl, Cave) -> true ; Vl = '.'),
+    Cave = c(((MinX, MinY), (MaxX, MaxY)), _),
+    forall(between(MinY, MaxY, Y),
+           (forall(between(MinX, MaxX, X),
+                   (caveref(Cave, (X, Y), Vl0),
+                    (var(Vl0) -> Vl = '.' ; Vl = Vl0),
                     write(Vl))),
             nl)).
