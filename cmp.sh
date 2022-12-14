@@ -15,7 +15,9 @@ DAY="$(echo "$DAYN" | sed 's/^0*//')"
 DAYP="$(printf "%02d" "$DAY")"
 
 SUMFILE="$DIR/hashes/day$DAYP.sha256"
-if [ -f "$SUMFILE" ] && (echo "$GOAL" "$@" | sha256sum -c "$SUMFILE")
+if [ -f "$DIR/out/day$DAYP" ] && \
+   [ -f "$SUMFILE" ] && \
+   (echo "$GOAL" "$@" | sha256sum -c "$SUMFILE")
 then exit 0
 fi
 
