@@ -12,6 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install SWI-Prolog
+      uses: royratcliffe/swi-prolog-pack-cover@main
     - name: Compile solutions
       run: ${{github.workspace}}/allcmp.sh
     - name: Execute solutions
