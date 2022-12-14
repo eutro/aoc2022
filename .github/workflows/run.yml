@@ -13,7 +13,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install SWI-Prolog
-      uses: royratcliffe/swi-prolog-pack-cover@main
+      run: |
+        sudo apt-add-repository ppa:swi-prolog/stable
+        sudo apt-get update
+        sudo apt install swi-prolog
     - name: Compile solutions
       run: ${{github.workspace}}/allcmp.sh
     - name: Execute solutions
