@@ -3,33 +3,33 @@
 
 main :-
     phrase_from_stream(cave(Cave), current_input),
-    forall(member(Mode, [p1, p2]),
-           (drop_sand(Mode, Cave, _, Ans),
-            writeln(Ans))).
+    drop_sand(s(P1, P2), Cave),
+    maplist(writeln, [P1, P2]).
 
-drop_sand(Mode, Cave0, Cave, Count) :-
+drop_sand(Mode, Cave0) :-
     extrema(Cave0, _, (_, MaxY)),
-    drop_sand(Mode, MaxY, [(500, 0)], Cave0, Cave, 0, Count).
+    drop_sand([(500, 0)], Mode, MaxY, Cave0, 0).
 
-drop_sand(p1, MaxY, [(_, Y) | _], Cave, Cave, Count, Count) :- Y > MaxY, !.
-drop_sand(p2, _, [], Cave, Cave, Count, Count) :- !.
-drop_sand(Mode, MaxY, Trail, Cave0, Cave, Count0, Count) :-
+drop_sand([], s(_, Count), _, _, Count) :- !.
+drop_sand(Trail, Mode, MaxY, Cave0, Count0) :-
     [(X, Y) | Prev] = Trail,
     Y1 is Y + 1,
     (member(Dx, [0, -1, 1]),
      X1 is X + Dx,
      Pos = (X1, Y1),
-     pos_empty(Mode, MaxY, Cave0, Pos), !
-    -> drop_sand(Mode, MaxY, [Pos | Trail], Cave0, Cave, Count0, Count)
+     pos_empty(Mode, Count0, MaxY, Cave0, Pos), !
+    -> drop_sand([Pos | Trail], Mode, MaxY, Cave0, Count0)
     ; rb_insert(Cave0, (X, Y), 'o', Cave1),
       Count1 is Count0 + 1,
-      drop_sand(Mode, MaxY, Prev, Cave1, Cave, Count1, Count)).
+      drop_sand(Prev, Mode, MaxY, Cave1, Count1)).
 
-pos_empty(p1, _, Cave, Pos) :- \+ rb_lookup(Pos, _, Cave).
-pos_empty(p2, MaxY, Cave, Pos) :-
-    pos_empty(p1, MaxY, Cave, Pos),
+pos_empty(s(P1, _), Count, MaxY, Cave, Pos) :-
+    \+ rb_lookup(Pos, _, Cave),
     Pos = (_, Y),
-    Y < MaxY + 2.
+    (Y > MaxY
+    -> (var(P1) -> P1 = Count ; true),
+       Y < MaxY + 2
+    ; true).
 
 cave(Cave) --> { rb_empty(Cave0) }, cave(Cave0, Cave).
 
@@ -55,8 +55,7 @@ drawpos(Pos, Cave0, Cave) :- rb_insert(Cave0, Pos, '#', Cave).
 
 path([(X, Y) | Tl]) -->
     integer(X), `,`, integer(Y),
-    (` -> ` -> path(Tl)
-    ; eol, { Tl = [] }).
+    (` -> ` -> path(Tl) ; eol, { Tl = [] }).
 
 write_cave(Cave) :-
     extrema(Cave, (Lx, Ly), (Hx, Hy)),
