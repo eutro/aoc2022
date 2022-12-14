@@ -1,5 +1,7 @@
 # AOC 2022
 
+[![Run All](https://github.com/eutro/aoc2022/actions/workflows/run.yml/badge.svg)](https://github.com/eutro/aoc2022/actions/workflows/run.yml)
+
 These are my solutions to [Advent of Code
 2022](https://adventofcode.com/2022), written in Prolog.
 
