@@ -1,36 +1,44 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
-:- use_module(library(lists)).
-:- use_module(library(apply)).
+:- use_module(library(solution_sequences)).
 :- use_module(util).
 
 main :-
     phrase_from_stream(sensors(Sensors), current_input),
-    row_count_occluded(Sensors, 2000000, P1),
-    writeln(P1),
-    find_distress(Sensors, 4000000, P2),
-    writeln(P2),
-    true.
+    forall(member(c(G, N), [c(row_count_occluded, 2000000),
+                            c(find_distress, 4000000)]),
+           (call(G, Sensors, N, Ans), writeln(Ans))).
 
 find_distress(Sensors, MaxPos, Distress) :-
-    between(0, MaxPos, Row),
-    writeln(Row),
-    row_ranges(Row, Sensors, RangeSet0),
-    subrange(RangeSet0, s(0, MaxPos), RangeSet),
-    X0 #= X - 1,
-    X1 #= X + 1,
-    RangeSet = [s(_, X0), s(X1, _)],
-    Distress is X * 4000000 + Row.
+    nth0(I, Sensors, First),
+    J #> I,
+    nth0(J, Sensors, Second),
+    penumbra((U, V), First),
+    penumbra((U, V), Second),
+    limit(2, label([U, V])), % the two we care about will only intersect once or twice
+    map_coord((X, Y), (U, V)),
+    [X, Y] ins 0..MaxPos,
+    \+ (member(Sensor, Sensors),
+        occludes(Sensor, (X, Y))),
+    Distress is X * 4000000 + Y.
+
+penumbra((U, V), Sensor) :-
+    map_coord(Sensor.pos, (Su, Sv)),
+    R = Sensor.range,
+    Umin is Su - R - 1, Umax is Su + R + 1,
+    Vmin is Sv - R - 1, Vmax is Sv + R + 1,
+    U in Umin..Umax, V in Vmin..Vmax,
+    (U #= Umin #\/ U #= Umax) #\/ (V #= Vmin #\/ V #= Vmax).
+
+map_coord((X, Y), (U, V)) :-
+    U #= X + Y,
+    V #= X - Y,
+    2 * X #= U + V.
 
 row_count_occluded(Sensors, Row, Occluded) :-
-    row_ranges(Row, Sensors, RangeSet),
-    area(RangeSet, Area),
+    occlusions(Row, Sensors, Area),
     count_beacons(Sensors, Row, Count),
-    Occluded #= Area - Count.
-
-row_ranges(Row, Sensors, RangeSet) :-
-    maplist(occludes(Row), Sensors, Spans),
-    collect_spans(Spans, RangeSet).
+    Occluded is Area - Count.
 
 count_beacons(Sensors, Row, Count) :-
     maplist(get_dict(beacon), Sensors, Beacons0),
@@ -39,48 +47,16 @@ count_beacons(Sensors, Row, Count) :-
     length(Ls, Count).
 beacon_row(Row, (_, Row)).
 
-subrange([], _, []) :- !.
-subrange([s(Sf, Ef) | Tl], Range, Rs) :-
-    s(Sr, Er) = Range,
-    (Ef < Sr -> subrange(Tl, Range, Rs)
-    ; Sf > Er -> Rs = []
-    ; S is max(Sf, Sr),
-      E is min(Ef, Er),
-      Rs = [s(S, E) | Tl1],
-      subrange(Tl, Range, Tl1)).
+occlusions(Y, Sensors, Count) :-
+    maplist(occludes(Y), Sensors, Occlusions),
+    fdset_union(Occlusions, Set),
+    fdset_size(Set, Count).
+occludes(Y, Sensor, Set) :- occludes(Sensor, (X, Y)), !, fd_set(X, Set).
+occludes(_, _, Set) :- empty_fdset(Set).
+occludes(Sensor, (X, Y)) :- dist_mh(Sensor.pos, (X, Y), Dist), Dist #=< Sensor.range.
 
 sensors([]) --> eos, !.
 sensors([Sensor | Tl]) --> sensor(Sensor), sensors(Tl).
-
-area([], 0) :- !.
-area([s(Lo, Hi) | Tl], R) :- R #= (Hi - Lo + 1) + R1, area(Tl, R1).
-
-collect_spans(Spans, RangeSet) :-
-    include(\=(false), Spans, NotFalse),
-    sort(NotFalse, Sorted),
-    merge_spans(Sorted, RangeSet).
-
-merge_spans(Spans, Rs) :- merge_spans(Spans, [], Rs).
-merge_spans([], Rs, Rs) :- !.
-merge_spans([Nxt | Spans], [], Rs) :- !, merge_spans(Spans, [Nxt], Rs).
-merge_spans([Nxt | Spans], [Fst | Tl], Rs) :-
-    Fst = s(Sf, Ef),
-    Nxt = s(Sn, En),
-    (Sn =< Ef + 1
-    -> E is max(En, Ef),
-       Rs1 = [s(Sf, E) | Tl],
-       merge_spans(Spans, Rs1, Rs)
-    ; Rs = [Fst | Tl1],
-      merge_spans(Spans, [Nxt | Tl], Tl1)).
-
-occludes(Row, Sensor, Span) :-
-    (Sx, Sy) = Sensor.pos,
-    LocalRange is Sensor.range - abs(Row - Sy),
-    (LocalRange >= 0
-    -> Lo is Sx - LocalRange,
-       Hi is Sx + LocalRange,
-       Span = s(Lo, Hi)
-    ; Span = false).
 
 sensor(s{pos: Pos, beacon: Beacon, range: Range}) -->
     `Sensor at `, pos(Pos), `: closest beacon is at `, pos(Beacon), eol,
