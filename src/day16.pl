@@ -1,4 +1,3 @@
-:- use_module(library(prolog_stack)).
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
 :- use_module(library(lists)).
@@ -8,30 +7,59 @@
 main :-
     phrase_from_stream(valves(Valves), current_input),
     valve_graph(Valves, Graph),
-    best_pressure(Graph, 1, 30, P1),
+    all_nodes(Graph, AllNodes),
+    best_pressure(Graph, 1, 1, 30, AllNodes, P1),
     writeln(P1),
+    best_pressure(Graph, 2, 1, 26, AllNodes, P2),
+    writeln(P2),
     true.
 
-best_pressure(Graph, From, Rem, Best) :- best_pressure(Graph, From, Rem, [], Best).
-:- table best_pressure/5.
-best_pressure(Graph, From, Rem, Open, Best) :-
-    (bagof(Pressure, next_pressure(Graph, From, Rem, Open, Pressure), Pressures)
-    -> once(max_member(solLe, Best, Pressures))
-    ; Best = s(0, [wait(Rem)]) % nothing more we can do except wait
+all_nodes(Graph, AllNodes) :-
+    functor(Graph, _, Count),
+    bagof(I, between(1, Count, I), AllNodes0),
+    foldl(set_bit, AllNodes0, 0, AllNodes).
+
+set_bit(N, Mask0, Mask) :- Mask is Mask0 \/ (1 << (N - 1)).
+unset_bit(N, Mask0, Mask) :- Mask is Mask0 /\ \ (1 << (N - 1)).
+bit_set(N, Mask) :- N in 1..16, 0 #\= Mask /\ (1 << (N - 1)).
+
+:- table best_pressure/6.
+best_pressure(Graph, Who, From, Rem, NotOpen, Best) :-
+    BestBox = box(-1),
+    (bagof(Pressure, next_pressure(Graph, Who, From, Rem, NotOpen, BestBox, Pressure), Pressures)
+    -> max_list(Pressures, Best)
+    ; Best = 0 % nothing more we can do except wait
     ).
 
-solLe(s(X, _), s(Y, _)) :- X =< Y.
-
-next_pressure(Graph, From0, Rem0, Open0, s(Pressure, S)) :-
+next_pressure(Graph, 2, _, _, NotOpen, _, P) :-
+    best_pressure(Graph, me, 1, 26, NotOpen, P).
+next_pressure(Graph, Who, From0, Rem0, NotOpen0, BestBox, Pressure) :-
     arg(From0, Graph, Node),
     arg(From, Node.dsts, Dist),
-    \+ ord_memberchk(From, Open0),
-    ord_add_element(Open0, From, Open),
+    bit_set(From, NotOpen0), label([From]), unset_bit(From, NotOpen0, NotOpen),
     Rem is Rem0 - Dist - 1, Rem > 0,
-    arg(From, Graph, DstNode),
-    S = [open{name: DstNode.a, rem: Rem} | S0],
-    best_pressure(Graph, From, Rem, Open, s(Pressure0, S0)),
-    Pressure is Pressure0 + Rem * DstNode.flow.
+    arg(From, Graph, DstNode), DstNode.flow \= 0,
+    FlowHere is Rem * DstNode.flow,
+
+    % (Who = 2 -> true
+    % ; arg(1, BestBox, LastBest),
+    %   best_possible(Graph, NotOpen, Rem, BestPossible0),
+    %   BestPossible is BestPossible0 + FlowHere,
+    %   BestPossible > LastBest),
+    best_pressure(Graph, Who, From, Rem, NotOpen, Pressure0),
+    Pressure is Pressure0 + FlowHere,
+    % (Who = 2 -> true
+    % ; LocalBest is max(LastBest, Pressure),
+    %   nb_setarg(1, BestBox, LocalBest)),
+    true.
+
+best_possible(Graph, NotOpen, Rem, Score) :-
+    bit_set(N, NotOpen),
+    bagof(N, label([N]), Idcs),
+    maplist(pressure_rel(Graph), Idcs, Rels),
+    sum(Rels, #=, Score0),
+    Score is Score0 * (Rem - 2).
+pressure_rel(Graph, I, Rel) :- arg(I, Graph, V), Rel = V.flow.
 
 q_empty(q([], [])).
 q_push(X, q(F, B), q([X | F], B)).
