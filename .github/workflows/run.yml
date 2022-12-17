@@ -12,6 +12,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install Tup
+      run: |
+        cd "$(mktemp -d tup.XXX)"
+        wget https://gittup.org/tup/releases/tup-v0.7.11.tar.gz
+        tar xvzf tup-v0.7.11.tar.gz
+        cd tup-v0.7.11
+        ./bootstrap.sh
+        ./tup
+        pwd >> $GITHUB_PATH
     - name: Install SWI-Prolog
       run: |
         sudo apt-add-repository ppa:swi-prolog/stable
