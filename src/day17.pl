@@ -4,22 +4,23 @@
 
 main :-
     phrase_from_stream(insns(Insns), current_input),
-    forall(member(Count, [2022, 1000000000000]),
-           (droprocks(Insns, Count, Ans),
-            writeln(Ans))).
+    droprocks(Insns, 1000000000000, P1, P2),
+    (var(P1) -> droprocks(Insns, 2022, _, P1) ; true),
+    maplist(writeln, [P1, P2]).
 
-droprocks(Insns, N, Height) :- state_init(S0), nthstate(step(Insns), N, S0, Height).
+droprocks(Insns, N, P1, Height) :- state_init(S0), nthstate(step(Insns), N, S0, P1, Height).
 
 tower_height(s(_, _, Grid), Height) :- Height is -Grid.top.
 
-nthstate(Step, N, S0, Height) :- nthstate(Step, N, 0, S0, S0, Height).
-nthstate(Step, N0, Off0, Slow0, Fast0, Height) :-
-    call(Step, Slow0, Slow),
-    call(Step, Fast0, Fast1),
-    succ(N1, N0), (N1 = 0 -> tower_height(Fast1, Height) ;
-    call(Step, Fast1, Fast),
-    succ(N, N1), (N = 0 -> tower_height(Fast, Height) ;
-    succ(Off0, Off),
+% N is divisible by 2
+nthstate(Step, N, S0, P1, Height) :- nthstate(Step, N, 0, S0, R-R, P1, Height).
+nthstate(_, 0, _, S, _, _, Height) :- !, tower_height(S, Height).
+nthstate(Step, N0, Off0, Fast0, [Slow | Slows]-R0, P1, Height) :-
+    (N0 is 1000000000000 - 2022 -> tower_height(Fast0, P1) ; true),
+    call(Step, Fast0, Fast1), call(Step, Fast1, Fast),
+    R0 = [Fast1, Fast | R],
+    N is N0 - 2,
+    Off is Off0 + 1,
     Ss = Slow, Sf = Fast,
     (eqstate(Ss, Sf)
     -> divmod(N, Off, Repeats, Remainder),
@@ -28,10 +29,10 @@ nthstate(Step, N0, Off0, Slow0, Fast0, Height) :-
        Acc is (Ae - As) * Repeats,
        Height #= Height0 + Acc,
        nthstate0(Step, Remainder, Sf, Height0)
-    ; nthstate(Step, N, Off, Slow, Fast, Height)))).
+    ; nthstate(Step, N, Off, Fast, Slows-R, P1, Height)).
 % tighter iteration where we know there won't be cycles
-nthstate0(Step, 0, S, Height) :- tower_height(S, Height), !.
-nthstate0(Step, N, S0, Height) :- succ(N1, N), call(Step, S0, S), nthstate0(Step, N1, S, Height).
+nthstate0(_, 0, S, Height) :- tower_height(S, Height), !.
+nthstate0(Step, N, S0, Height) :- N1 is N - 1, call(Step, S0, S), nthstate0(Step, N1, S, Height).
 
 state_init(s(1, 0, Grid)) :- grid_init(Grid).
 eqstate(s(IP, RP, Grid0), s(IP, RP, Grid1)) :-
@@ -75,10 +76,6 @@ droprock(Insns, Rock, Pos0, IP0-Grid0, IP-Grid) :-
     -> droprock(Insns, Rock, Pos, IP1-Grid0, IP-Grid)
     ; IP = IP1, placerock(Rock, Pos1, Grid0, Grid)).
 
-placerock(Rock, Pos, Grid0, Grid) :- foldl(placetile(Pos), Rock.tiles, Grid0, Grid).
-placetile(Pos, Tile, Grid0, Grid) :- mvby(Pos, Tile, PosAbs), placetile(PosAbs, Grid0, Grid).
-placetile(Pos, Grid0, Grid) :- grid_empty(Grid0, Pos), grid_set(Pos, Grid0, Grid).
-
 mvrock(Grid, Rock, Dir, Pos0, Pos) :-
     mvpos(Pos0, Dir, Pos),
     checkcoll(Grid, Rock, Dir, Pos).
@@ -95,16 +92,25 @@ grid_init(grid{top: 0, map: Map}) :- length(Cols, 7), maplist(rb_empty, Cols), M
 
 grid:col(I, Grid, Col) :- arg(I, Grid.map, Col).
 
-grid_empty(Grid, Pos, Offset) :- mvby(Pos, Offset, PosAbs), grid_empty(Grid, PosAbs).
-grid_empty(Grid, Pos) :- Pos = (X, Y), between(1, 7, X), Y =< 0, \+ rb_lookup(Y, _, Grid.col(X)).
-grid_set(Pos, Grid0, grid{top: Top, map: Map}) :-
-    Pos = (X, Y),
-    copy_term(Grid0.map, Map),
-    rb_insert(Grid0.col(X), Y, '#', Col),
-    nb_setarg(X, Map, Col),
-    Top is min(Grid0.top, Y - 1).
+grid_empty(Grid, Pos, Offset) :-
+    mvby(Pos, Offset, (X, Y)),
+    between(1, 7, X),
+    Y =< 0,
+    \+ rb_lookup(Y, _, Grid.col(X)).
 
-:- table nthrock0/2.
+placerock(Rock, Pos, Grid0, Grid) :-
+    copy_term(Grid0.map, Map),
+    foldl(placetile(Pos), Rock.tiles, Grid0.put([map=Map]), Grid).
+placetile(Pos, Tile, Grid0, Grid) :- mvby(Pos, Tile, PosAbs), grid_set(PosAbs, Grid0, Grid).
+grid_set(Pos, Grid0, Grid) :-
+    Pos = (X, Y),
+    rb_insert_new(Grid0.col(X), Y, '#', Col),
+    nb_setarg(X, Grid0.map, Col),
+    Height is Y - 1,
+    (Height < Grid0.top
+    -> Grid = Grid0.put([top=Height])
+    ; Grid = Grid0).
+
 nthrock0(0,
          r{tiles: [(0,0), (1,0), (2,0), (3,0)],
            '<': [(0,0)],
