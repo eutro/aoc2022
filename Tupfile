@@ -1,0 +1,6 @@
+DRIVER=driver_time.pl
+
+: foreach src/day*.pl ^src/day16.pl |> swipl -O -g "run." -o %o -c %f src/$(DRIVER) |> out/%1B
+
+: foreach src/*.c |> swipl-ld -Wall -O2 -c %f -o %o |> out/%B.o
+: src/day16.pl out/day16.o |> swipl-ld -O -goal "run" -o %o %f src/$(DRIVER) |> out/day16

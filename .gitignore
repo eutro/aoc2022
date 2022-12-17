@@ -1,4 +1,6 @@
 session.key
 /out/
 /hashes/
+*.o
 *~
+.tup
