@@ -21,12 +21,14 @@ jobs:
       run: |
         cd "$(mktemp -d tup.XXX)"
         wget https://gittup.org/tup/releases/tup-v0.7.11.tar.gz
-        tar xvzf tup-v0.7.11.tar.gz
+        tar xzf tup-v0.7.11.tar.gz
         cd tup-v0.7.11
         ./bootstrap.sh
         ./tup
-        pwd >> $GITHUB_PATH
+        pwd | tee /dev/stderr >> $GITHUB_PATH
     - name: Compile solutions
-      run: ${{github.workspace}}/allcmp.sh
+      run: |
+        cd ${{github.workspace}}
+        ./allcmp.sh
     - name: Execute solutions
       run: ${{github.workspace}}/allfast.sh
