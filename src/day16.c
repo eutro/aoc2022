@@ -118,5 +118,5 @@ foreign_t pl_best_pressure(
 
 int main(int argc, char **argv) {
   PL_register_foreign("best_pressure", 4, pl_best_pressure, 0);
-  return PL_initialise(argc, argv);
+  return !PL_initialise(argc, argv);
 }

@@ -10,7 +10,7 @@ for i in $(seq "$DAYS_DONE")
 do echo "Day $i"
    DAYP="$(printf "%02d" "$i")"
    if ! "$DIR/out/day$DAYP" < "$DIR/input/day$DAYP.txt"
-   then EXIT_CODE=1
+   then EXIT_CODE=1; echo "Day $i failed"
    fi
    echo
 done
