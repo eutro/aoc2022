@@ -32,4 +32,3 @@ Here's what the scripts do:
   - If `--` is not provided, fetch input (with `fetch.sh`) if not yet
     downloaded.
   - With `--`, just read input from stdin.
-  - With `--time`, time how long the solution takes to run.
