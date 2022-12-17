@@ -12,6 +12,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install SWI-Prolog and Fuse
+      run: |
+        sudo apt-add-repository ppa:swi-prolog/stable
+        sudo apt update
+        sudo apt install swi-prolog libfuse3-dev
     - name: Install Tup
       run: |
         cd "$(mktemp -d tup.XXX)"
@@ -21,11 +26,6 @@ jobs:
         ./bootstrap.sh
         ./tup
         pwd >> $GITHUB_PATH
-    - name: Install SWI-Prolog
-      run: |
-        sudo apt-add-repository ppa:swi-prolog/stable
-        sudo apt-get update
-        sudo apt install swi-prolog
     - name: Compile solutions
       run: ${{github.workspace}}/allcmp.sh
     - name: Execute solutions
