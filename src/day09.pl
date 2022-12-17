@@ -25,10 +25,6 @@ run(I, Rope, Vs0, Vs) -->
     { move_rope(Rope, Dir, Rope1, Vs0, Vs1) },
     run(I, Rope1, Vs1, Vs).
 
-mvby((X1, Y1), (DX, DY), (X2, Y2)) :-
-    X2 #= X1 + DX,
-    Y2 #= Y1 + DY.
-
 move_rope([H | Tl], Dir, [H1 | Tl1], Vs0, Vs1) :-
     move(H, Dir, H1),
     move_tl(H1, Tl, Tl1, Vs0, Vs1).

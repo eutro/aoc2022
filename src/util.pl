@@ -13,7 +13,8 @@
               arrayref/3,
               arrayset/4,
               grid_letters/2,
-              grid_string/2
+              grid_string/2,
+              mvby/3
           ]).
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
@@ -130,3 +131,7 @@ grid_uncons(Grid0, L, Grid) :-
     (maplist(take(1), Rhss, Between, Grid),
      maplist(=([0'.]), Between)
     ; Grid = Rhss).
+
+mvby((X1, Y1), (DX, DY), (X2, Y2)) :-
+    X2 #= X1 + DX,
+    Y2 #= Y1 + DY.
