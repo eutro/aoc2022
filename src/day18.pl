@@ -9,8 +9,8 @@ main :-
     writeln(Area),
 
     extrema(Min0, Max0, Tiles),
-    pos:add(Min, p{x:1, y:1, z:1}, Min0),
-    pos:add(Max0, p{x:1, y:1, z:1}, Max),
+    pos:add(Min, p(1,1,1), Min0),
+    pos:add(Max0, p(1,1,1), Max),
     rb_empty(Empty),
     foldl(rb_add, Tiles, Empty, TilesMap),
     flood(TilesMap, Min-Max, Max, Empty, OutsideTilesMap),
@@ -30,8 +30,7 @@ surface(Tiles, Surface) :-
 rb_contains(Rb, Point) :- rb_lookup(Point, _, Rb).
 rb_add(Point, Rb0, Rb) :- rb_insert(Rb0, Point, [], Rb).
 
-in_bounds(p{x: MinX, y: MinY, z: MinZ}-p{x: MaxX, y: MaxY, z: MaxZ},
-          p{x: X, y: Y, z: Z}) :-
+in_bounds(p(MinX, MinY, MinZ)-p(MaxX, MaxY, MaxZ), p(X, Y, Z)) :-
     between(MinX, MaxX, X),
     between(MinY, MaxY, Y),
     between(MinZ, MaxZ, Z).
@@ -39,20 +38,20 @@ in_bounds(p{x: MinX, y: MinY, z: MinZ}-p{x: MaxX, y: MaxY, z: MaxZ},
 flood(Points, Bounds, From, Seen0, Seen) :-
     rb_add(From, Seen0, Seen1),
     neighbours(From, Neighbours),
-    exclude(rb_contains(Seen0), Neighbours, ToVisit0),
-    exclude(rb_contains(Points), ToVisit0, ToVisit1),
-    include(in_bounds(Bounds), ToVisit1, ToVisit),
-    % writeln(flooding{from: From, visiting: ToVisit}),
+    include(should_visit(Points, Bounds, Seen0), Neighbours, ToVisit),
     foldl(flood(Points, Bounds), ToVisit, Seen1, Seen).
 
-extrema(p{x: MinX, y: MinY, z: MinZ},
-        p{x: MaxX, y: MaxY, z: MaxZ},
-        Points) :-
-    extrema(x, MinX, MaxX, Points),
-    extrema(y, MinY, MaxY, Points),
-    extrema(z, MinZ, MaxZ, Points).
+should_visit(Points, Bounds, Seen, Point) :-
+    in_bounds(Bounds, Point),
+    \+ rb_contains(Seen, Point),
+    \+ rb_contains(Points, Point).
+
+extrema(p(MinX, MinY, MinZ), p(MaxX, MaxY, MaxZ), Points) :-
+    extrema(1, MinX, MaxX, Points),
+    extrema(2, MinY, MaxY, Points),
+    extrema(3, MinZ, MaxZ, Points).
 extrema(Axis, Min, Max, Points) :-
-    maplist(get_dict(Axis), Points, AxisPosns),
+    maplist(arg(Axis), Points, AxisPosns),
     max_list(AxisPosns, Max),
     min_list(AxisPosns, Min).
 
@@ -71,16 +70,16 @@ faces(Point, Faces) :-
 face(From, To, Face) :- From @< To, !, Face = From-To.
 face(To, From, Face) :- Face = From-To.
 
-axes([p{x:1,y:0,z:0}, p{x:0,y:1,z:0}, p{x:0,y:0,z:1}]).
+axes([p(1,0,0), p(0,1,0), p(0,0,1)]).
 directions(Dirs) :-
     axes(Axes),
     maplist(pos:negate, Axes, AxesInv),
     append(Axes, AxesInv, Dirs).
     
-pos:negate(Pos0, Pos) :- pos:add(Pos0, Pos, p{x:0,y:0,z:0}).
-pos:add(p{x:X1, y:Y1, z:Z1}, p{x:X2, y:Y2, z:Z2}, p{x:X, y:Y, z:Z}) :-
+pos:negate(Pos0, Pos) :- pos:add(Pos0, Pos, p(0,0,0)).
+pos:add(p(X1, Y1, Z1), p(X2, Y2, Z2), p(X, Y, Z)) :-
     maplist(plus, [X1, Y1, Z1], [X2, Y2, Z2], [X, Y, Z]).
 
 tiles([]) --> eos, !.
 tiles([Pos | Tl]) --> pos(Pos), eol, tiles(Tl).
-pos(p{x:X, y:Y, z:Z}) --> integer(X), `,`, integer(Y), `,`, integer(Z). 
+pos(p(X, Y, Z)) --> integer(X), `,`, integer(Y), `,`, integer(Z). 
