@@ -1,6 +1,7 @@
 #include <SWI-Prolog.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <limits.h>
 
 #define MAT_C 4
 #define INGR_C 3
@@ -13,6 +14,7 @@ typedef struct { pat_t pats[MAT_C]; } blueprint_t;
 
 static void recur(
   blueprint_t *bp,
+  robots_t *max_robots,
 
   int time,
   resources_t resources,
@@ -22,6 +24,8 @@ static void recur(
 ) {
   bool could_build = false;
   for (unsigned robot = 0; robot < MAT_C; ++robot) { // which robot to build
+    if (robots.counts[robot] == max_robots->counts[robot]) continue;
+
     unsigned time_to_wait = 0;
     pat_t pat = bp->pats[robot];
     for (unsigned ingr = 0; ingr < INGR_C; ++ingr) { // limiting ingredient
@@ -57,6 +61,7 @@ static void recur(
     could_build = true;
     recur(
       bp,
+      max_robots,
 
       new_time,
       new_resources,
@@ -73,11 +78,6 @@ static void recur(
     unsigned geodes
       = resources.res[GEODE]
       + robots.counts[GEODE] * (unsigned) time;
-    // printf("have %u, robots %u, at %i -> %u\n",
-    //        resources.res[GEODE],
-    //        robots.counts[GEODE],
-    //        time,
-    //        geodes);
     if (geodes > *max_geodes) *max_geodes = geodes;
   }
 }
@@ -86,9 +86,22 @@ unsigned simulate_bp(
   blueprint_t *bp,
   int time
 ) {
+  // there's no point building more of any robot than the most a recipe calls for
+  robots_t max_robots;
+  for (unsigned i = 0; i < INGR_C; ++i) {
+    unsigned max = 0;
+    for (unsigned j = 0; j < MAT_C; ++j) {
+      unsigned required = bp->pats[j].res[i];
+      if (required > max) max = required;
+    }
+    max_robots.counts[i] = max;
+  }
+  max_robots.counts[GEODE] = UINT_MAX;
+
   unsigned max_geodes = 0;
   recur(
     bp,
+    &max_robots,
     time,
     (resources_t) {{ 0, 0, 0, 0 }},
     (robots_t) {{ 1, 0, 0, 0 }},
