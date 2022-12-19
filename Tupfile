@@ -1,7 +1,11 @@
-DRIVER=driver_time.pl
+DRIVER = driver_time.pl
+CFLAGS = -Wall -O2
+PLFLAGS = -O
 
-: foreach src/day*.pl ^src/day1[69].pl |> swipl -O -g "run." -o %o -c %f src/$(DRIVER) |> out/%1B
+!sw-cc = |> swipl $(PLFLAGS) -g "run." -o %o -c %f |> out/%1B
+!sw-ld = |> swipl-ld $(PLFLAGS) -goal "run" -o %o %f |> out/%1B
 
-: foreach src/*.c |> swipl-ld -Wall -O2 -c %f -o %o |> out/%B.o
-: src/day16.pl out/day16.o |> swipl-ld -O -goal "run" -o %o %f src/$(DRIVER) |> out/day16
-: src/day19.pl out/day19.o |> swipl-ld -O -goal "run" -o %o %f src/$(DRIVER) |> out/day19
+: foreach src/*.c |> swipl-ld $(CFLAGS) -c %f -o %o |> out/%B.o
+
+preload src
+run ./Tuprules

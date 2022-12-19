@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 
 DIR="$(readlink -f "$(dirname "$0")")"
-
 cd "$DIR/src/" || exit 1
 DAYS_DONE="$(find . -name "day*.pl" | sort | tail -1 | sed -E 's/[^0-9]//g')"
 

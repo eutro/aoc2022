@@ -2,20 +2,23 @@
 :- use_module(util).
 
 main :-
-    phrase_from_stream(monkeys(Monkeys, States), current_input),
+    phrase_from_stream(monkeys(Monkeys, States0), current_input),
     foldl(lcmof, Monkeys, 1, Lcm),
-    forall(member(r(Mode, N),
-                  [r(p1, 20),
-                   r(p2(Lcm), 10000)]),
-           (nthround(Mode, Monkeys, N, States, Sn),
-            mbis(Sn, Ans),
-            writeln(Ans))).
+    foreach(member(r(Mode, N),
+                   [r(p1, 20),
+                    r(p2(Lcm), 10000)]),
+            simulate(Mode, Monkeys, N, States0)).
+simulate(Mode, Monkeys, N, States0) :-
+    duplicate_term(States0, States),
+    nthround(Mode, Monkeys, N, States, Sn),
+    mbis(Sn, Ans),
+    writeln(Ans).
 
 lcmof(M, Lcm0, Lcm) :- Lcm is lcm(M.factor, Lcm0).
 
 mbis(Sn, Mbis) :-
     Sn =.. [_ | Ms],
-    maplist([M, I]>>(I is -M.inspects), Ms, Is),
+    maplist([s(_, Ins), I]>>(I is -Ins), Ms, Is),
     msort(Is, [A, B | _]),
     Mbis is A * B.
 
@@ -27,19 +30,19 @@ nthround(Mode, Ms, I, S0, S) :-
 
 turn(Mode, M, S0, S) :-
     sget(M.idx, S0, Sm),
-    Hand = Sm.hand,
+    Sm = s(Hand, Ins0),
     length(Hand, HandLen),
-    Ins is Sm.inspects + HandLen,
+    Ins is Ins0 + HandLen,
     maplist(worry(Mode, M), Hand, NewHand),
     partition(check(M), NewHand, ToTrue, ToFalse),
-    sput(M.idx, S0, s{hand: [], inspects: Ins}, S1),
+    sput(M.idx, S0, s([], Ins), S1),
     throw_to(M.ift, ToTrue, S1, S2),
     throw_to(M.iff, ToFalse, S2, S).
 
 throw_to(I, Ls, S0, S) :-
-    sget(I, S0, Si),
-    append(Ls, Si.hand, Sih),
-    sput(I, S0, Si.put([hand=Sih]), S).
+    sget(I, S0, s(Hand0, Ins)),
+    append(Ls, Hand0, Hand),
+    sput(I, S0, s(Hand, Ins), S).
 
 sget(I, S, Si) :- arg(I, S, Si).
 % safety: we discard the old state every time (we still backtrack in the forall, though)
@@ -68,10 +71,7 @@ monkey(monkey{
            ift: IfT,
            iff: IfF
        },
-       s{
-           hand: Starting,
-           inspects: 0
-       }) -->
+       s(Starting, 0)) -->
     `Monkey `, monkeyref(I), `:`, eol,
     `  Starting items: `, items(Starting), eol, !,
     `  Operation: `, operator(Op), eol,
@@ -81,5 +81,5 @@ monkey(monkey{
 
 monkeyref(I) --> integer(I0), { I is I0 + 1 }.
 items([Item | Tl]) --> integer(Item), (`, ` -> items(Tl) ; { Tl = [] }).
+operator(sqr) --> `new = old * old`, !.
 operator(f(F, N)) --> `new = old `, [Op], ` `, integer(N), { atom_codes(F, [Op]) }.
-operator(sqr) --> `new = old * old`.

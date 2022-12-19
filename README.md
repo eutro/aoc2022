@@ -11,8 +11,9 @@ Solutions are written for [SWI-Prolog](https://www.swi-prolog.org/),
 and it (the `swipl` command) is required to run these solutions. To
 run the solution for a day, consult the source file and query tha
 `main.` goal. This will read the input from `current_input` (stdin by
-default), and output answers to `current_output` (stdout by
-default). Day 16 also requires linking against its C source file.
+default, or `AOC_INPUT` when linked using `cmp.sh`/Tup), and output
+answers to `current_output` (stdout by default). Some days also
+require linking against their C source file.
 
 Builds are automated using [Tup](https://gittup.org/tup/) (and the
 scripts use it), but I'm sure you can compile things manually too

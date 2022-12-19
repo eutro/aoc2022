@@ -1,15 +1,13 @@
 :- use_module(library(dcg/basics)).
 :- use_module(library(clpfd)).
-:- use_module(library(lists)).
-:- use_module(library(apply)).
 :- use_module(util).
 
 main :-
     phrase_from_stream(insns(Insns), current_input),
     flatten_moves(Insns, Flat),
-    forall(member(Len, [2, 10]),
-           (track(Flat, Len, Ans),
-            writeln(Ans))).
+    foreach((var(Ans), member(Len, [2, 10])),
+            (track(Flat, Len, Ans),
+             writeln(Ans))).
 
 track(Flat, I, Unique) :-
     phrase(run(I, Trail), Flat),
@@ -19,7 +17,7 @@ track(Flat, I, Unique) :-
 run(I, Vs) -->
     { length(Rope, I), maplist(=((0,0)), Rope) },
     run(I, Rope, [(0, 0)], Vs).
-run(_, _, Vs, Vs) --> eos.
+run(_, _, Vs, Vs) --> eos, !.
 run(I, Rope, Vs0, Vs) -->
     [mv(Dir)],
     { move_rope(Rope, Dir, Rope1, Vs0, Vs1) },
@@ -55,10 +53,10 @@ flatten_moves([mv(Dir, N) | Tl], [mv(Dir) | Fl]) :-
     N1 #= N - 1,
     flatten_moves([mv(Dir, N1) | Tl], Fl).
 
-insns([]) --> eos.
+insns([]) --> eos, !.
 insns([mv(Dir, By) | Tl]) --> dir(Dir), ` `, integer(By), eol, insns(Tl).
 
-dir(up) --> `U`.
-dir(down) --> `D`.
-dir(left) --> `L`.
-dir(right) --> `R`.
+dir(up) --> `U`, !.
+dir(down) --> `D`, !.
+dir(left) --> `L`, !.
+dir(right) --> `R`, !.

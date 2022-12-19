@@ -13,15 +13,16 @@ fi
 DAY="$(echo "$DAYN" | sed 's/^0*//')"
 DAYP="$(printf "%02d" "$DAY")"
 
+export AOC_INPUT
 if [ "$1" = "--" ]
-then INPUT="/dev/stdin"; shift
+then AOC_INPUT="/dev/stdin"; shift
 else
     if [ ! -f "$DIR/input/day$DAYP.txt" ]
     then "$DIR/fetch.sh" "$DAY" || exit 1
     fi
-    INPUT="$DIR/input/day$DAYP.txt"
+    AOC_INPUT="$DIR/input/day$DAYP.txt"
 fi
 
 "$DIR/cmp.sh" $TIME "$DAY" "$@" || exit 1
 
-exec "$DIR/out/day$DAYP" < "$INPUT"
+exec "$DIR/out/day$DAYP"

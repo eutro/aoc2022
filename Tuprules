@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+DIR="$(readlink -f "$(dirname "$0")")"
+cd "$DIR/src" || exit 1
+DAYS_DONE="$(find . -name "day*.pl" | sort | tail -1 | sed -E 's/[^0-9]//g')"
+
+for i in $(seq "$DAYS_DONE"); do
+    DAYP="$(printf "%02d" "$i")"
+    if [ -e "day$DAYP.c" ]
+    then echo ": src/day$DAYP.pl out/day$DAYP.o src/"'$(DRIVER)'" |> !sw-ld |>"
+    else echo ": src/day$DAYP.pl src/"'$(DRIVER)'" |> !sw-cc |>"
+    fi
+done
