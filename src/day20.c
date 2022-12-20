@@ -1,7 +1,4 @@
 #include <SWI-Prolog.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <limits.h>
 
 typedef struct node_t node_t;
 struct node_t {
@@ -12,10 +9,8 @@ struct node_t {
 void mixtimes(size_t times, size_t sz, node_t *nodes) {
   int64_t base = (int64_t) sz - 1;
   for (size_t t = 0; t < times; ++t) {
-    // printf("Mix %ld\n", t);
     for (size_t i = 0; i < sz; ++i) {
       node_t *node = &nodes[i];
-      // printf("Node %ld: %ld\n", i, node->data);
       node->prev->next = node->next;
       node->next->prev = node->prev;
       int64_t mvby0 = node->data % base;
@@ -72,4 +67,3 @@ int main(int argc, char **argv) {
   PL_register_foreign("mixtimes", 3, pl_mixtimes, 0);
   return !PL_initialise(argc, argv);
 }
-
