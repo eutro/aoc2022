@@ -9,7 +9,7 @@ main :-
              writeln(Ans))).
 
 simulate(p1, Bps, Ans) :-
-    maplist(simulate_bp(24), Bps, Geodes),
+    maplist(simulate_bp(24) /* see day19.c */, Bps, Geodes),
     maplist([bp(_, Id), G, R]>>(R is Id * G), Bps, Geodes, Qualities),
     sum(Qualities, #=, Ans).
 
