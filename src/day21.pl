@@ -4,18 +4,14 @@
 
 main :-
     phrase_from_stream(monkeys(Monkeys), current_input),
-    forall(member(Mode, [p1, p2]),
-           (constrain_all(Mode, Monkeys, Ans),
+    forall(member(m(Mode, Who), [m(p1, "root"), m(p2, "humn")]),
+           (constrain_all(Mode, Monkeys),
+            rb_lookup(Who, m(Ans, _), Monkeys),
             writeln(Ans))).
 
-constrain_all(Mode, Monkeys, Ans) :-
+constrain_all(Mode, Monkeys) :-
     rb_visit(Monkeys, Kvs),
-    maplist(constrain(Mode, Monkeys), Kvs),
-    mode_monkey(Mode, Target),
-    rb_lookup(Target, m(Ans, _), Monkeys).
-
-mode_monkey(p1, "root").
-mode_monkey(p2, "humn").
+    maplist(constrain(Mode, Monkeys), Kvs).
 
 constrain(Mode, Monkeys, Name-m(Val, Expr)) :- eval(Mode, Monkeys, Name, Expr, Val).
 
