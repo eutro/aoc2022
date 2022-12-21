@@ -16,6 +16,8 @@ DAYP="$(printf "%02d" "$DAY")"
 export AOC_INPUT
 if [ "$1" = "--" ]
 then AOC_INPUT="/dev/stdin"; shift
+elif [ "$1" = "-i" ]
+then AOC_INPUT="$2"; shift; shift
 else
     if [ ! -f "$DIR/input/day$DAYP.txt" ]
     then "$DIR/fetch.sh" "$DAY" || exit 1
