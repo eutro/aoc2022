@@ -22,23 +22,23 @@ run(_, [], S0, S) => S = S0.
 run(Grid, [I | Tl], S0, S) => run0(Grid, I, S0, S1), run(Grid, Tl, S1, S).
 :- det(run0/4).
 run0(_, rot(D), Pos-R0, Pos-R) :- R is (R0 + D) mod 4, !.
-run0(Grid, mv(N), Pos0-R, Pos-R) :-
-    delta(R, D),
-    mv(Grid, R, D, N, Pos0, Pos).
+run0(Grid, mv(N), S0, S) :- mv(Grid, N, S0, S).
 
-:- det(mv/6).
-mv(_, _, _, 0, Pos, Pos) :- !.
-mv(Grid, R, D, N, Pos0, Pos) :-
-    symbol(R, Sym),
-    gridset(Grid, Pos0, Sym),
-    wrap(Grid, D, Pos0, Pos1),
+:- det(mv/4).
+mv(_, 0, S, S) :- !.
+mv(Grid, N, S0, S) :-
+    % symbol(R, Sym),
+    % gridset(Grid, Pos0, Sym),
+    wrap(Grid, S0, S1),
+    S1 = Pos1-_,
     gridref(Grid, Pos1, Vl),
-    (Vl = 0'# -> Pos = Pos0
+    (Vl = 0'# -> S = S0
     ; N1 is N - 1,
-      mv(Grid, R, D, N1, Pos1, Pos)).
+      mv(Grid, N1, S1, S)).
 
-:- det(wrap/4).
-wrap(Grid, D, Pos0, Pos) :-
+:- det(wrap/3).
+wrap(Grid, Pos0-R, Pos-R) :-
+    delta(R, D),
     mvby(Pos0, D, (X0, Y0)),
     functor(Grid, _, Rows),
     Y is ((Y0 - 1) mod Rows) + 1,
@@ -47,7 +47,7 @@ wrap(Grid, D, Pos0, Pos) :-
     X is ((X0 - 1) mod Cols) + 1,
     Pos1 = (X, Y),
     gridref(Grid, Pos1, Vl),
-    (Vl = 0'  -> wrap(Grid, D, Pos1, Pos)
+    (Vl = 0'  -> wrap(Grid, Pos1-R, Pos-R)
     ; Pos = Pos1).
 
 delta(0, D) => D = ( 1,  0).
