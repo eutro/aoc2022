@@ -8,7 +8,6 @@ main :-
     forall(member(Mode, [p1, p2]),
            (run(Mode, Grid, Insns, (X0, 1)-0, (X, Y)-R),
             Ans is 1000 * Y + 4 * X + R,
-            % write_grid(Grid),
             writeln(Ans))).
 
 write_grid(Grid) :-
@@ -28,9 +27,9 @@ run0(Grid, Map, mv(N), S0, S) :- mv(Grid, Map, N, S0, S).
 :- det(mv/4).
 mv(_, _, 0, S, S) :- !.
 mv(Grid, Map, N, S0, S) :-
-    S0 = Pos0-R,
-    symbol(R, Sym),
-    gridset(Grid, Pos0, Sym),
+    % S0 = Pos0-R,
+    % symbol(R, Sym),
+    % gridset(Grid, Pos0, Sym),
     wrap(Map, S0, S1),
     S1 = Pos1-_,
     gridref(Grid, Pos1, Vl),
@@ -88,6 +87,13 @@ build_wrapcol(Grid, X, Map0, Map) :-
     rb_insert(Map0, (X, BotY)-1, (X, TopY)-1, Map1),
     rb_insert(Map1, (X, TopY)-3, (X, BotY)-3, Map).
 
+fillrange(Offset, Span) -->
+    string_without(`\n.#`, Padding),
+    string_without(` \n`, Content),
+    remainder(_),
+    { length(Padding, Offset),
+      length(Content, Span) }.
+
 build_wrapmap_p2(Grid, Map0, Map) :-
     functor(Grid, _, Rows),
     arg(1, Grid, Row0),
@@ -116,15 +122,18 @@ fuse_edges(Map0, Map) -->
     [_-Lhs, _-Rhs],
     { fuse_edge(Lhs, Rhs, Map0, Map1) },
     fuse_edges(Map1, Map).
-
 fuse_edge(edge(DirL, StartL, EndL),
           edge(DirR, StartR, EndR),
           Map0, Map) :-
-    % writeln(fuse_edge(edge(DirL, StartL, EndL),
-    %                   edge(DirR, StartR, EndR))),
     edge_list(StartL, EndL, Left),
     edge_list(StartR, EndR, Right),
     foldl(fuse_tile(DirL, DirR), Left, Right, Map0, Map).
+fuse_tile(DirL, DirR, Left, Right, Map0, Map) :-
+    flip_dir(DirL, RDirL), flip_dir(DirR, RDirR),
+    rb_insert(Map0, Left-DirL, Right-RDirR, Map1),
+    rb_insert(Map1, Right-DirR, Left-RDirL, Map).
+
+flip_dir(A, B) :- B is (A + 2) mod 4.
 
 edge_list(Start, Start, [Start]) :- !.
 edge_list(Start, End, [Start | Tl]) :-
@@ -134,26 +143,17 @@ edge_list(Start, End, [Start | Tl]) :-
     Y is Y0 + sign(DY),
     edge_list((X, Y), End, Tl).
 
-fuse_tile(DirL, DirR, Left, Right, Map0, Map) :-
-    flip_dir(DirL, RDirL), flip_dir(DirR, RDirR),
-    rb_insert(Map0, Left-DirL, Right-RDirR, Map1),
-    rb_insert(Map1, Right-DirR, Left-RDirL, Map).
-
-flip_dir(A, B) :- B is (A + 2) mod 4.
-
 walk_tree(Tiles, Pos-Tile, Trans, Seen0-Edges0, Seen-Edges) :-
     maplist(matmulv(Trans), [v(0, 0, 0), v(0, 1, 0), v(1, 0, 0), v(1, 1, 0)], LEdges0),
+    %                       ^ the order matches that in grid_tile
     pairs_keys_values([Tl, Bl, Tr, Br], LEdges0, Tile.vs),
-    maplist(normedge,
-            [edge(0'^, Tl, Tr), edge(0'v, Bl, Br), edge(0'<, Tl, Bl), edge(0'>, Tr, Br)],
-            LEdges),
+    maplist(norm_edge, LEdges,
+            [edge(0'^, Tl, Tr),
+             edge(0'v, Bl, Br),
+             edge(0'<, Tl, Bl),
+             edge(0'>, Tr, Br)]),
     append(LEdges, Edges0, Edges1),
     foldl(walk_edge(Tiles, Trans), Tile.nbs, [Pos | Seen0]-Edges1, Seen-Edges).
-
-normedge(edge(Sym, Start, End), (Swc,Ewc)-edge(Dir, Slc, Elc)) :-
-    symbol(Dir, Sym),
-    keysort([Start, End], [Swc-Slc, Ewc-Elc]).
-
 walk_edge(Tiles, Trans0, Side-Pos, Seen0-Edges0, Seen-Edges) :-
     (memberchk(Pos, Seen0)
     -> Seen = Seen0, Edges = Edges0
@@ -161,6 +161,10 @@ walk_edge(Tiles, Trans0, Side-Pos, Seen0-Edges0, Seen-Edges) :-
       matmul(Trans0, SideTrans, Trans),
       member(Pos-Tile, Tiles),
       walk_tree(Tiles, Pos-Tile, Trans, Seen0-Edges0, Seen-Edges)).
+
+norm_edge((Swc, Ewc)-edge(Dir, Slc, Elc), edge(Sym, Start, End)) :-
+    symbol(Dir, Sym),
+    keysort([Start, End], [Swc-Slc, Ewc-Elc]).
 
 matmul(m(M1, M2, M3, Mx1,
          M4, M5, M6, Mx2,
@@ -232,13 +236,6 @@ neighbour(Grid, U, V, CellSz, Dir, U1, V1) :-
     U1 is U + DU,
     V1 is V + DV,
     tile_exists(Grid, U1, V1, CellSz, _, _).
-
-fillrange(Offset, Span) -->
-    string_without(`\n.#`, Padding),
-    string_without(` \n`, Content),
-    remainder(_),
-    { length(Padding, Offset),
-      length(Content, Span) }.
 
 input(Grid, Insns) --> grid(Grid), path(Insns), remainder(_).
 
