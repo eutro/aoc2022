@@ -5,11 +5,10 @@
 main :-
     phrase_from_stream(input(Grid, Insns), current_input),
     once((between(1, 100, X0), gridref(Grid, (X0, 1), Vl), Vl = 0'.)),
-    run(Grid, Insns, (X0, 1)-0, (X, Y)-R),
-    P1 is 1000 * Y + 4 * X + R,
-    writeln(P1),
-    % write_grid(Grid),
-    true.
+    forall(member(Mode, [p1, p2]),
+           (run(Mode, Grid, Insns, (X0, 1)-0, (X, Y)-R),
+            Ans is 1000 * Y + 4 * X + R,
+            writeln(Ans))).
 
 write_grid(Grid) :-
     forall(arg(_, Grid, Row),
@@ -18,38 +17,30 @@ write_grid(Grid) :-
             writeln(Str))).
 
 :- det(run/4).
-run(_, [], S0, S) => S = S0.
-run(Grid, [I | Tl], S0, S) => run0(Grid, I, S0, S1), run(Grid, Tl, S1, S).
+run(Mode, Grid, Insns, S0, S) :-
+    build_wrapmap(Mode, Grid, Map),
+    foldl(run0(Grid, Map), Insns, S0, S).
 :- det(run0/4).
-run0(_, rot(D), Pos-R0, Pos-R) :- R is (R0 + D) mod 4, !.
-run0(Grid, mv(N), S0, S) :- mv(Grid, N, S0, S).
+run0(_, _, rot(D), Pos-R0, Pos-R) :- R is (R0 + D) mod 4, !.
+run0(Grid, Map, mv(N), S0, S) :- mv(Grid, Map, N, S0, S).
 
 :- det(mv/4).
-mv(_, 0, S, S) :- !.
-mv(Grid, N, S0, S) :-
+mv(_, _, 0, S, S) :- !.
+mv(Grid, Map, N, S0, S) :-
     % symbol(R, Sym),
     % gridset(Grid, Pos0, Sym),
-    wrap(Grid, S0, S1),
+    wrap(Map, S0, S1),
     S1 = Pos1-_,
     gridref(Grid, Pos1, Vl),
     (Vl = 0'# -> S = S0
     ; N1 is N - 1,
-      mv(Grid, N1, S1, S)).
+      mv(Grid, Map, N1, S1, S)).
 
 :- det(wrap/3).
-wrap(Grid, Pos0-R, Pos-R) :-
-    delta(R, D),
-    mvby(Pos0, D, (X0, Y0)),
-    functor(Grid, _, Rows),
-    Y is ((Y0 - 1) mod Rows) + 1,
-    arg(Y, Grid, Row),
-    functor(Row, _, Cols),
-    X is ((X0 - 1) mod Cols) + 1,
-    Pos1 = (X, Y),
-    gridref(Grid, Pos1, Vl),
-    (Vl = 0'  -> wrap(Grid, Pos1-R, Pos-R)
-    ; Pos = Pos1).
+wrap(Map, S0, S) :- rb_lookup(S0, S, Map), !.
+wrap(Map, Pos0-R, Pos-R) :- move(R, Pos0, Pos).
 
+move(Dir, Pos0, Pos) :- delta(Dir, D), mvby(Pos0, D, Pos).
 delta(0, D) => D = ( 1,  0).
 delta(1, D) => D = ( 0,  1).
 delta(2, D) => D = (-1,  0).
@@ -66,6 +57,39 @@ gridref(Grid, (X, Y), Vl) :-
 gridset(Grid, (X, Y), Vl) :-
     arg(Y, Grid, Row),
     setarg(X, Row, Vl).
+
+build_wrapmap(Mode, Grid, Map) :-
+    rb_empty(Map0),
+    build_wrapmap(Mode, Grid, Map0, Map).
+build_wrapmap(p1, Grid, Map0, Map) :-
+    bagof(Y-Row, arg(Y, Grid, Row), Rows),
+    foldl(build_wraprow, Rows, Map0, Map1),
+    arg(1, Grid, Row0),
+    functor(Row0, _, ColC),
+    bagof(X, between(1, ColC, X), Cols),
+    foldl(build_wrapcol(Grid), Cols, Map1, Map).
+build_wraprow(Y-Row, Map0, Map) :-
+    Row =.. [_ | RowL],
+    phrase(fillrange(Offset, Span), RowL),
+    LeftX is Offset + 1,
+    RightX is Offset + Span,
+    rb_insert(Map0, (LeftX, Y)-2, (RightX, Y)-2, Map1),
+    rb_insert(Map1, (RightX, Y)-0, (LeftX, Y)-0, Map).
+build_wrapcol(Grid, X, Map0, Map) :-
+    Grid =.. [_ | Rows],
+    maplist(arg(X), Rows, Col),
+    phrase(fillrange(Offset, Span), Col),
+    TopY is Offset + 1,
+    BotY is Offset + Span,
+    rb_insert(Map0, (X, BotY)-1, (X, TopY)-1, Map1),
+    rb_insert(Map1, (X, TopY)-3, (X, BotY)-3, Map).
+
+fillrange(Offset, Span) -->
+    string_without(`\n.#`, Padding),
+    string_without(` \n`, Content),
+    remainder(_),
+    { length(Padding, Offset),
+      length(Content, Span) }.
 
 input(Grid, Insns) --> grid(Grid), path(Insns).
 
