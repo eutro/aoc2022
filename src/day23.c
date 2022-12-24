@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <limits.h>
 
+// I just adjusted these until they worked :)
 #define TABLE_BREADTH 1024
 #define TABLE_DEPTH 16
 #define MAX_PROPOS 2048
@@ -42,6 +43,7 @@ static bool lookup_pos(grid_t *grid, pos_t pos) {
 static void add_pos(grid_t *grid, pos_t pos) {
   table_row_t *row = TABLE_ROW(grid, pos);
   if (row->len == TABLE_DEPTH) {
+    // we'd overwrite the next bucket otherwise...
     fprintf(stderr, "Max hash collisions exceeded\n");
     exit(1);
   }

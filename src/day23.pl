@@ -4,7 +4,7 @@
 
 main :-
     phrase_from_stream(grid(Grid0), current_input),
-    step_state(Grid0, 0, 10, Grid1, 10),
+    step_state(Grid0, 0, 10, Grid1, 10), % see day23.c
     count_empty(Grid1, P1),
     writeln(P1),
     step_state(Grid1, 10, 9999, _, P2),
