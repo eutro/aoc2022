@@ -31,7 +31,7 @@ typedef struct {
 } proposition_t;
 
 static size_t hash_pos(pos_t pos) { return (size_t) pos.x * 1123 + (size_t) pos.y; }
-#define TABLE_ROW(GRID, POS) &grid->rows[hash_pos(pos) % TABLE_BREADTH];
+#define TABLE_ROW(GRID, POS) &(GRID)->rows[hash_pos((POS)) % TABLE_BREADTH];
 static bool lookup_pos(grid_t *grid, pos_t pos) {
   table_row_t *row = TABLE_ROW(grid, pos);
   for (size_t i = 0; i < row->len; ++i) {
